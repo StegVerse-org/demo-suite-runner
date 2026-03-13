@@ -1,0 +1,61 @@
+name: Run Demo Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Runner mode"
+        required: true
+        default: "execution_governance"
+        type: choice
+        options:
+          - execution_governance
+          - mutation_governance
+          - full
+      reset:
+        description: "Reset mode"
+        required: true
+        default: "hard"
+        type: choice
+        options:
+          - hard
+          - soft
+      ref:
+        description: "Target ref in stegverse-demo-suite (main, v1.0.0, v1.1.0, etc.)"
+        required: false
+        default: "main"
+        type: string
+
+jobs:
+  run-demo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout demo_suite_runner
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Ensure launcher permissions after clone
+        run: |
+          python --version
+          git --version
+
+      - name: Run selected demo mode
+        run: |
+          python runner/main.py \
+            --mode "${{ inputs.mode }}" \
+            --reset "${{ inputs.reset }}" \
+            --ref "${{ inputs.ref }}"
+
+      - name: Upload run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-run-${{ inputs.mode }}-${{ github.run_number }}
+          path: |
+            runs/
+            reports/
+          if-no-files-found: error
