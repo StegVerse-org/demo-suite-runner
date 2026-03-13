@@ -1,0 +1,13 @@
+{
+  "commands": [
+    "./stegverse reset",
+    "./stegverse runtime-info",
+    "./stegverse explain",
+    "./stegverse demo",
+    "./stegverse verify",
+    "./stegverse action deploy_change",
+    "./stegverse mutate deploy",
+    "./stegverse mutation-receipts",
+    "./stegverse reports"
+  ]
+}

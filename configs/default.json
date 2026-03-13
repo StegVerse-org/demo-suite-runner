@@ -1,0 +1,6 @@
+{
+  "repo_url": "https://github.com/stegverse-org/stegverse-demo-suite.git",
+  "default_ref": "main",
+  "target_repo_name": "stegverse-demo-suite",
+  "work_root": ".work"
+}
