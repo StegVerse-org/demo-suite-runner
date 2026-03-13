@@ -1,5 +1,9 @@
 # demo_suite_runner
 
+![Runner Workflow](https://github.com/StegVerse-org/demo_suite_runner/actions/workflows/run-demo.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![License](https://img.shields.io/github/license/StegVerse-org/demo_suite_runner)
+
 A headless runner harness for validating `stegverse-demo-suite` as an external user.
 
 ## Purpose
