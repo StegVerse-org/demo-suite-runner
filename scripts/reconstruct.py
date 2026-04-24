@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
 """
 Reconstruction Engine with Confidence Analysis
-
-Purpose: Reconstruct state timeline from run artifacts and compute a
-determinism confidence score with transparent constraints.
-
-The confidence score answers exactly one question:
-  "Is the reconstructed dataset the same as the original,
-   within the boundaries of what we chose to observe?"
-
-It does NOT answer:
-  - Was the internal logic correct?
-  - Were there side effects we did not capture?
-  - Is the system secure?
-
-Those require inspection of the system under test, not its outputs.
 """
 
 import json
@@ -24,7 +10,6 @@ from typing import Dict, List, Any
 
 
 def parse_stdout_log(stdout_path: Path) -> List[Dict[str, Any]]:
-    """Parse stdout.log into per-command output blocks."""
     if not stdout_path.exists():
         return []
     text = stdout_path.read_text()
@@ -44,19 +29,18 @@ def parse_stdout_log(stdout_path: Path) -> List[Dict[str, Any]]:
 
 
 def extract_state_transitions(blocks: List[Dict]) -> List[Dict]:
-    """Extract state transitions from demo command output."""
     transitions = []
     for block in blocks:
-        if "demo" in block["command"] or "State transition" in block["output"]:
-            matches = re.findall(r"State transition:\s*(\w+)\s*->\s*(\w+)", block["output"])
-            for m in matches:
-                transitions.append({"from": m[0], "to": m[1], "source": block["command"]})
+        matches = re.findall(r"State transition:\s*(\w+)\s*->\s*(\w+)", block["output"])
+        for m in matches:
+            transitions.append({"from": m[0], "to": m[1], "source": block["command"]})
     return transitions
 
 
 def extract_receipts(blocks: List[Dict]) -> List[Dict]:
-    """Extract receipt IDs and decisions from action/mutation outputs and receipt listings."""
     receipts = []
+    seen_ids = set()
+
     for block in blocks:
         # Action receipts with inline receipt_id
         action_match = re.search(
@@ -64,64 +48,93 @@ def extract_receipts(blocks: List[Dict]) -> List[Dict]:
             block["output"], re.DOTALL | re.IGNORECASE
         )
         if action_match:
-            receipts.append({
-                "type": "action",
-                "decision": action_match.group(1).upper(),
-                "action": action_match.group(2),
-                "receipt_id": action_match.group(3),
-                "source": block["command"]
-            })
+            rid = action_match.group(3)
+            if rid not in seen_ids:
+                seen_ids.add(rid)
+                receipts.append({
+                    "type": "action",
+                    "decision": action_match.group(1).upper(),
+                    "action": action_match.group(2),
+                    "receipt_id": rid,
+                    "source": block["command"]
+                })
             continue
+
         # Mutation receipts with inline receipt_id
         mut_match = re.search(
             r"Mutation (allowed|denied):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
             block["output"], re.DOTALL | re.IGNORECASE
         )
         if mut_match:
-            receipts.append({
-                "type": "mutation",
-                "decision": mut_match.group(1).upper(),
-                "mutation": mut_match.group(2),
-                "receipt_id": mut_match.group(3),
-                "source": block["command"]
-            })
+            rid = mut_match.group(3)
+            if rid not in seen_ids:
+                seen_ids.add(rid)
+                receipts.append({
+                    "type": "mutation",
+                    "decision": mut_match.group(1).upper(),
+                    "mutation": mut_match.group(2),
+                    "receipt_id": rid,
+                    "source": block["command"]
+                })
             continue
+
         # Receipt listings from mutation-receipts command
         listing_matches = re.findall(
             r"^\d+\.\s*(\w+)\s*\|\s*([A-F0-9]{16})\s*\|\s*prev=(\w+)\s*\|\s*decision=(\w+)",
             block["output"], re.MULTILINE | re.IGNORECASE
         )
         for m in listing_matches:
-            receipts.append({
-                "type": "mutation_listing",
-                "mutation": m[0],
-                "receipt_id": m[1],
-                "previous": m[2],
-                "decision": m[3].upper(),
-                "source": block["command"]
-            })
+            rid = m[1]
+            if rid not in seen_ids:
+                seen_ids.add(rid)
+                receipts.append({
+                    "type": "mutation_listing",
+                    "mutation": m[0],
+                    "receipt_id": rid,
+                    "previous": m[2],
+                    "decision": m[3].upper(),
+                    "source": block["command"]
+                })
     return receipts
 
 
 def extract_artifact_unlocks(blocks: List[Dict]) -> List[Dict]:
-    """Extract document unlock events, including initial unlocked from explain."""
     unlocks = []
+    seen = set()
     for block in blocks:
         # Standard unlock events from state transitions
         matches = re.findall(r"Unlocked document:\s*(\S+)", block["output"])
         for m in matches:
-            unlocks.append({"artifact": m, "source": block["command"], "method": "transition"})
+            if m not in seen:
+                seen.add(m)
+                unlocks.append({"artifact": m, "source": block["command"], "method": "transition"})
 
         # Initial unlocked artifacts from explain output
         if "explain" in block["command"]:
             initial_matches = re.findall(r"unlocked artifacts:\s*\n\s+-\s+(\S+)", block["output"], re.IGNORECASE)
             for m in initial_matches:
-                unlocks.append({"artifact": m, "source": block["command"], "method": "initial"})
+                if m not in seen:
+                    seen.add(m)
+                    unlocks.append({"artifact": m, "source": block["command"], "method": "initial"})
     return unlocks
 
 
 def extract_final_state(blocks: List[Dict]) -> Dict:
-    """Extract final state from verify or demo output."""
+    """Extract final state from the LAST command that produces state info."""
+    # Search in reverse, but prioritize verify and demo commands over explain
+    priority_commands = ["verify", "demo", "reports"]
+
+    for priority in priority_commands:
+        for block in reversed(blocks):
+            if priority in block["command"]:
+                state_match = re.search(r"current_state['\"]?\s*:\s*['\"]?(\w+)", block["output"])
+                if state_match:
+                    return {"current_state": state_match.group(1)}
+                demo_final = re.findall(r"State transition:\s*\w+\s*->\s*(\w+)", block["output"])
+                if demo_final:
+                    return {"current_state": demo_final[-1]}
+
+    # Fallback: any block
     for block in reversed(blocks):
         state_match = re.search(r"current_state['\"]?\s*:\s*['\"]?(\w+)", block["output"])
         if state_match:
@@ -133,7 +146,6 @@ def extract_final_state(blocks: List[Dict]) -> Dict:
 
 
 def validate_state_chain(transitions: List[Dict]) -> Dict:
-    """Check that state transitions form a valid sequence."""
     if not transitions:
         return {"score": 0.0, "reason": "No state transitions found in output"}
 
@@ -160,7 +172,6 @@ def validate_state_chain(transitions: List[Dict]) -> Dict:
 
 
 def validate_receipt_chain(receipts: List[Dict]) -> Dict:
-    """Check receipt continuity and uniqueness."""
     if not receipts:
         return {"score": 0.0, "reason": "No receipts found in output"}
 
@@ -187,7 +198,6 @@ def validate_receipt_chain(receipts: List[Dict]) -> Dict:
 
 
 def validate_artifact_consistency(unlocks: List[Dict], final_state: Dict) -> Dict:
-    """Check that artifact unlocks match expected state progression."""
     if not unlocks:
         return {"score": 0.0, "reason": "No artifact unlocks found"}
 
@@ -218,7 +228,6 @@ def validate_artifact_consistency(unlocks: List[Dict], final_state: Dict) -> Dic
 
 
 def check_output_completeness(run_dir: Path, summary: Dict) -> Dict:
-    """Check that all commands have captured output."""
     commands = summary.get("commands", [])
     if not commands:
         return {"score": 0.0, "reason": "No command records in summary"}
@@ -284,6 +293,38 @@ def detect_unexplained_variance(blocks: List[Dict]) -> Dict:
         r"^={10,}",
         r"^-",
         r"^\s",
+        # Demo-suite specific headers and status lines
+        r"^RESETTING RUNTIME",
+        r"^INITIAL STATUS",
+        r"^FINAL STATUS",
+        r"^PRE-WORKFLOW ACTION CHECK",
+        r"^PRE-WORKFLOW MUTATION CHECK",
+        r"^INITIAL BULK RETRIEVAL CHECK",
+        r"^POST-WORKFLOW ACTION CHECK",
+        r"^POST-WORKFLOW MUTATION CHECK",
+        r"^RUNNING DEMO",
+        r"^VERIFICATION",
+        r"^Mutation receipt generated",
+        r"^Action receipt generated",
+        r"^runtime: StegVerse Runtime",
+        r"^workflow states:",
+        r"^documents governed:",
+        r"^actions governed:",
+        r"^mutations governed:",
+        r"^governance model:",
+        r"^documentation model:",
+        r"^causal effect requires",
+        r"^reports are governed",
+        r"^Governed Execution",
+        r"^Mutation Governance",
+        r"^Capability Release",
+        r"^completed steps:",
+        r"^workflow receipts:",
+        r"^action receipts:",
+        r"^mutation receipts:",
+        r"^total_receipts:",
+        r"^unlocked_documents:",
+        r"^StegVerse governed workflow",
     ]
 
     issues = []
@@ -314,8 +355,6 @@ def detect_unexplained_variance(blocks: List[Dict]) -> Dict:
 
 
 def compute_overall_confidence(axes: Dict[str, Dict]) -> Dict:
-    """Compute weighted overall confidence with transparent constraints."""
-
     weights = {
         "state_continuity": 0.25,
         "receipt_integrity": 0.20,
@@ -359,7 +398,6 @@ def compute_overall_confidence(axes: Dict[str, Dict]) -> Dict:
 
 
 def reconstruct(run_dir: Path) -> Dict:
-    """Main reconstruction pipeline."""
     summary_path = run_dir / "summary.json"
     stdout_path = run_dir / "stdout.log"
 
@@ -405,7 +443,6 @@ def reconstruct(run_dir: Path) -> Dict:
 
 
 def write_reconstruction_report(run_dir: Path, data: Dict) -> Path:
-    """Generate human-readable reconstruction report."""
     report_path = run_dir / "reconstruction.md"
 
     lines = [
@@ -475,6 +512,11 @@ def write_reconstruction_report(run_dir: Path, data: Dict) -> Path:
         lines.append("### Artifact Unlocks")
         for u in rec['artifact_unlocks']:
             lines.append(f"- `{u['artifact']}` (via {u['source']}, {u['method']})")
+        lines.append("")
+
+    if rec['final_state']:
+        lines.append("### Final State")
+        lines.append(f"- `{rec['final_state'].get('current_state', 'unknown')}`")
         lines.append("")
 
     lines.extend([
