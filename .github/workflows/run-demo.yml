@@ -4,58 +4,72 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Runner mode"
+        description: 'Test mode'
         required: true
-        default: "execution_governance"
+        default: 'execution_governance'
         type: choice
         options:
           - execution_governance
           - mutation_governance
+          - governance_matrix
+          - governance_random_sweep
           - full
       reset:
-        description: "Reset mode"
+        description: 'Reset mode'
         required: true
-        default: "hard"
+        default: 'hard'
         type: choice
         options:
-          - hard
           - soft
-      ref:
-        description: "Target ref in stegverse-demo-suite (main, v1.0.0, v1.1.0, etc.)"
+          - hard
+      seed:
+        description: 'Random seed (for governance_random_sweep only)'
         required: false
-        default: "main"
+        default: '42'
         type: string
+      samples:
+        description: 'Samples per phase (for governance_random_sweep only)'
+        required: false
+        default: '50'
+        type: string
+      reconstruct:
+        description: 'Run reconstruction and confidence analysis'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
-  run-demo:
+  run:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout demo_suite_runner
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Ensure launcher permissions after clone
+          python-version: '3.11'
+      
+      - name: Run demo suite
         run: |
-          python --version
-          git --version
-
-      - name: Run selected demo mode
-        run: |
-          python runner/main.py \
-            --mode "${{ inputs.mode }}" \
-            --reset "${{ inputs.reset }}" \
-            --ref "${{ inputs.ref }}"
-
-      - name: Upload run artifacts
+          RECON_FLAG=""
+          if [ "${{ github.event.inputs.reconstruct }}" == "false" ]; then
+            RECON_FLAG="--no-reconstruct"
+          fi
+          
+          if [ "${{ github.event.inputs.mode }}" == "governance_random_sweep" ]; then
+            python runner/main.py --mode ${{ github.event.inputs.mode }} --reset ${{ github.event.inputs.reset }} --seed ${{ github.event.inputs.seed }} --samples ${{ github.event.inputs.samples }} $RECON_FLAG
+          else
+            python runner/main.py --mode ${{ github.event.inputs.mode }} --reset ${{ github.event.inputs.reset }} $RECON_FLAG
+          fi
+      
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: demo-run-${{ inputs.mode }}-${{ github.run_number }}
+          name: demo-run-${{ github.event.inputs.mode }}-${{ github.run_id }}
           path: |
             runs/
             reports/
-          if-no-files-found: error
