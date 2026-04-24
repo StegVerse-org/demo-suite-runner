@@ -42,7 +42,6 @@ def extract_receipts(blocks: List[Dict]) -> List[Dict]:
     seen_ids = set()
 
     for block in blocks:
-        # Action receipts with inline receipt_id
         action_match = re.search(
             r"Action (allowed|denied):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
             block["output"], re.DOTALL | re.IGNORECASE
@@ -60,7 +59,6 @@ def extract_receipts(blocks: List[Dict]) -> List[Dict]:
                 })
             continue
 
-        # Mutation receipts with inline receipt_id
         mut_match = re.search(
             r"Mutation (allowed|denied):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
             block["output"], re.DOTALL | re.IGNORECASE
@@ -78,7 +76,6 @@ def extract_receipts(blocks: List[Dict]) -> List[Dict]:
                 })
             continue
 
-        # Receipt listings from mutation-receipts command
         listing_matches = re.findall(
             r"^\d+\.\s*(\w+)\s*\|\s*([A-F0-9]{16})\s*\|\s*prev=(\w+)\s*\|\s*decision=(\w+)",
             block["output"], re.MULTILINE | re.IGNORECASE
@@ -102,14 +99,12 @@ def extract_artifact_unlocks(blocks: List[Dict]) -> List[Dict]:
     unlocks = []
     seen = set()
     for block in blocks:
-        # Standard unlock events from state transitions
         matches = re.findall(r"Unlocked document:\s*(\S+)", block["output"])
         for m in matches:
             if m not in seen:
                 seen.add(m)
                 unlocks.append({"artifact": m, "source": block["command"], "method": "transition"})
 
-        # Initial unlocked artifacts from explain output
         if "explain" in block["command"]:
             initial_matches = re.findall(r"unlocked artifacts:\s*\n\s+-\s+(\S+)", block["output"], re.IGNORECASE)
             for m in initial_matches:
@@ -120,21 +115,30 @@ def extract_artifact_unlocks(blocks: List[Dict]) -> List[Dict]:
 
 
 def extract_final_state(blocks: List[Dict]) -> Dict:
-    """Extract final state from the LAST command that produces state info."""
-    # Search in reverse, but prioritize verify and demo commands over explain
-    priority_commands = ["verify", "demo", "reports"]
+    """Extract final state from the demo command's FINAL STATUS section."""
+    # First, look specifically at the demo command for FINAL STATUS
+    for block in blocks:
+        if "demo" in block["command"]:
+            # Look for current_state in the FINAL STATUS dict
+            final_status_match = re.search(
+                r"FINAL STATUS\s*=+\s*\{[^}]*current_state['\"]?\s*:\s*['\"]?(\w+)",
+                block["output"], re.DOTALL
+            )
+            if final_status_match:
+                return {"current_state": final_status_match.group(1)}
+            # Also check for the last state transition
+            demo_final = re.findall(r"State transition:\s*\w+\s*->\s*(\w+)", block["output"])
+            if demo_final:
+                return {"current_state": demo_final[-1]}
 
-    for priority in priority_commands:
-        for block in reversed(blocks):
-            if priority in block["command"]:
-                state_match = re.search(r"current_state['\"]?\s*:\s*['\"]?(\w+)", block["output"])
-                if state_match:
-                    return {"current_state": state_match.group(1)}
-                demo_final = re.findall(r"State transition:\s*\w+\s*->\s*(\w+)", block["output"])
-                if demo_final:
-                    return {"current_state": demo_final[-1]}
+    # Fallback: check verify command
+    for block in blocks:
+        if "verify" in block["command"]:
+            state_match = re.search(r"current_state['\"]?\s*:\s*['\"]?(\w+)", block["output"])
+            if state_match:
+                return {"current_state": state_match.group(1)}
 
-    # Fallback: any block
+    # Last resort: any block
     for block in reversed(blocks):
         state_match = re.search(r"current_state['\"]?\s*:\s*['\"]?(\w+)", block["output"])
         if state_match:
@@ -270,6 +274,7 @@ def detect_unexplained_variance(blocks: List[Dict]) -> Dict:
         r"^StegVerse Runtime",
         r"^version: demo-suite",
         r"^current_state:",
+        r"^current state:",
         r"^governed actions:",
         r"^governed mutations:",
         r"^unlocked artifacts:",
@@ -302,6 +307,7 @@ def detect_unexplained_variance(blocks: List[Dict]) -> Dict:
         r"^INITIAL BULK RETRIEVAL CHECK",
         r"^POST-WORKFLOW ACTION CHECK",
         r"^POST-WORKFLOW MUTATION CHECK",
+        r"^FINAL BULK RETRIEVAL CHECK",
         r"^RUNNING DEMO",
         r"^VERIFICATION",
         r"^Mutation receipt generated",
@@ -325,6 +331,18 @@ def detect_unexplained_variance(blocks: List[Dict]) -> Dict:
         r"^total_receipts:",
         r"^unlocked_documents:",
         r"^StegVerse governed workflow",
+        r"^StegVerse Demonstration Reports",
+        r"^StegVerse Demonstration",
+        r"^Expected denial:",
+        r"^Action denied:",
+        r"^Mutation denied:",
+        r"^Causal release withheld",
+        r"^Causal release granted",
+        r"^Workflow receipt chain verified",
+        r"^Action receipt chain verified",
+        r"^Mutation receipt chain verified",
+        r"^State and artifact consistency verified",
+        r"^the runtime history remains",
     ]
 
     issues = []
