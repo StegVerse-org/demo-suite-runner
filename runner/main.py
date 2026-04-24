@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 import subprocess
+import os
 
 from config import load_json_config, ROOT
 from git_ops import clone_repo, fetch_and_checkout, get_commit_hash
@@ -63,15 +64,16 @@ def main():
     config = load_mode_commands(args.mode)
     commands = config.get("commands", [])
 
-    env_vars = {}
+    # Set env vars for sweep mode before running commands
     if args.mode == "governance_random_sweep":
-        env_vars = {"SV_SEED": str(args.seed), "SV_SAMPLES": str(args.samples)}
+        os.environ["SV_SEED"] = str(args.seed)
+        os.environ["SV_SAMPLES"] = str(args.samples)
 
     results = []
     command_log, stdout_log, stderr_log = [], [], []
 
     for command in commands:
-        result = run_command(target_repo_dir, command, env=env_vars)
+        result = run_command(target_repo_dir, command)
         results.append(result)
         command_log.append(command)
         stdout_log.append(f"$ {command}\n{result['stdout']}")
