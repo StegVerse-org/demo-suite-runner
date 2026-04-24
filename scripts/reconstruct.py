@@ -343,6 +343,9 @@ def detect_unexplained_variance(blocks: List[Dict]) -> Dict:
         r"^Mutation receipt chain verified",
         r"^State and artifact consistency verified",
         r"^the runtime history remains",
+        r"^Workflow receipts:",
+        r"^Action receipts:",
+        r"^Mutation receipts:",
     ]
 
     issues = []
