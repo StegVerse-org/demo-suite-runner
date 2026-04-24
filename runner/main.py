@@ -21,10 +21,8 @@ def parse_args():
     parser.add_argument("--ref", default=None, help="Git ref to checkout, e.g. main or v1.0.0")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for governance_random_sweep")
     parser.add_argument("--samples", type=int, default=50, help="Samples per phase for governance_random_sweep")
-    parser.add_argument("--reconstruct", action="store_true", default=True,
-                        help="Run reconstruction and confidence analysis after test (default: on)")
     parser.add_argument("--no-reconstruct", action="store_true",
-                        help="Skip reconstruction")
+                        help="Skip reconstruction and confidence analysis")
     return parser.parse_args()
 
 def load_mode_commands(mode: str):
@@ -39,7 +37,7 @@ def load_mode_commands(mode: str):
 
 def main():
     args = parse_args()
-    do_reconstruct = args.reconstruct and not args.no_reconstruct
+    do_reconstruct = not args.no_reconstruct
 
     default = load_json_config("default.json")
     repo_url = default["repo_url"]
@@ -64,7 +62,6 @@ def main():
     config = load_mode_commands(args.mode)
     commands = config.get("commands", [])
 
-    # Set env vars for sweep mode before running commands
     if args.mode == "governance_random_sweep":
         os.environ["SV_SEED"] = str(args.seed)
         os.environ["SV_SAMPLES"] = str(args.samples)
@@ -121,7 +118,7 @@ def main():
     write_summary_json(run_dir / "summary.json", summary)
     write_markdown_report(run_dir / "report.md", summary)
 
-    # Auto-run reconstruction
+    # Auto-run reconstruction (default on)
     if do_reconstruct:
         recon_script = ROOT / "scripts" / "reconstruct.py"
         if recon_script.exists():
