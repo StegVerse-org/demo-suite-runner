@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Reconstruction engine with confidence and optional GCAT/BCAT alignment."""
+"""Reconstruction engine with confidence and GCAT/BCAT alignment.
+
+This version fixes the post-enforcement reconstruction drift:
+
+1. Matrix rows now read `formal_expected` instead of expecting `expected`.
+2. Admissibility alignment treats enforced matrix/sweep reports as authoritative.
+3. GCAT/BCAT JSON emitted by governed wrappers is recognized as expected output,
+   not unexplained variance.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +15,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def parse_stdout_log(stdout_path: Path) -> List[Dict[str, Any]]:
@@ -48,19 +56,24 @@ def extract_receipts(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen_ids = set()
 
     for block in blocks:
+        output = block["output"]
+
         action_match = re.search(
-            r"Action (allowed|denied):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
-            block["output"],
+            r"Action (allowed|denied|fail_closed):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
+            output,
             re.DOTALL | re.IGNORECASE,
         )
         if action_match:
             rid = action_match.group(3)
             if rid not in seen_ids:
                 seen_ids.add(rid)
+                decision = action_match.group(1).upper()
+                if decision == "FAIL_CLOSED":
+                    decision = "FAIL_CLOSED"
                 receipts.append(
                     {
                         "type": "action",
-                        "decision": action_match.group(1).upper(),
+                        "decision": decision,
                         "action": action_match.group(2),
                         "receipt_id": rid,
                         "source": block["command"],
@@ -68,20 +81,23 @@ def extract_receipts(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 )
             continue
 
-        mut_match = re.search(
-            r"Mutation (allowed|denied):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
-            block["output"],
+        mutation_match = re.search(
+            r"Mutation (allowed|denied|fail_closed):\s*(\w+).*?receipt_id['\"]?\s*:\s*['\"]?([A-F0-9]{16})",
+            output,
             re.DOTALL | re.IGNORECASE,
         )
-        if mut_match:
-            rid = mut_match.group(3)
+        if mutation_match:
+            rid = mutation_match.group(3)
             if rid not in seen_ids:
                 seen_ids.add(rid)
+                decision = mutation_match.group(1).upper()
+                if decision == "FAIL_CLOSED":
+                    decision = "FAIL_CLOSED"
                 receipts.append(
                     {
                         "type": "mutation",
-                        "decision": mut_match.group(1).upper(),
-                        "mutation": mut_match.group(2),
+                        "decision": decision,
+                        "mutation": mutation_match.group(2),
                         "receipt_id": rid,
                         "source": block["command"],
                     }
@@ -90,7 +106,7 @@ def extract_receipts(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
         listing_matches = re.findall(
             r"^\d+\.\s*(\w+)\s*\|\s*([A-F0-9]{16})\s*\|\s*prev=(\w+)\s*\|\s*decision=(\w+)",
-            block["output"],
+            output,
             re.MULTILINE | re.IGNORECASE,
         )
         for mutation, rid, previous, decision in listing_matches:
@@ -164,7 +180,7 @@ def extract_final_state(blocks: List[Dict[str, Any]]) -> Dict[str, str]:
     return {}
 
 
-def load_optional_json(path: Path) -> Dict[str, Any] | None:
+def load_optional_json(path: Path) -> Optional[Dict[str, Any]]:
     if not path.exists():
         return None
 
@@ -285,12 +301,38 @@ def check_output_completeness(run_dir: Path, summary: Dict[str, Any]) -> Dict[st
     }
 
 
+def is_inside_json_block_state(line: str, state: Dict[str, int]) -> bool:
+    """Track whether stdout is currently printing an admissibility JSON blob.
+
+    The governed wrappers print a JSON object after `admissibility:`.
+    Those lines are expected evidence, not unexplained variance.
+    """
+
+    stripped = line.strip()
+
+    if stripped == "admissibility:":
+        state["pending_json"] = 1
+        return True
+
+    if state.get("pending_json") and stripped == "{":
+        state["pending_json"] = 0
+        state["json_depth"] = 1
+        return True
+
+    depth = state.get("json_depth", 0)
+    if depth > 0:
+        state["json_depth"] = depth + stripped.count("{") - stripped.count("}")
+        return True
+
+    return False
+
+
 def detect_unexplained_variance(blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
     known_patterns = [
         r"^Runtime reset complete",
         r"^State transition:",
-        r"^Action (allowed|denied):",
-        r"^Mutation (allowed|denied):",
+        r"^Action (allowed|denied|fail_closed):",
+        r"^Mutation (allowed|denied|fail_closed):",
         r"^Unlocked document:",
         r"^Verifying StegVerse runtime",
         r"^Runtime verification PASSED",
@@ -358,6 +400,12 @@ def detect_unexplained_variance(blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
         r"^Expected denial:",
         r"^Action denied:",
         r"^Mutation denied:",
+        r"^Mutation fail_closed:",
+        r"^Action fail_closed:",
+        r"^mapped_action:",
+        r"^decision:",
+        r"^reason:",
+        r"^receipt_id:",
         r"^Causal release withheld",
         r"^Causal release granted",
         r"^Workflow receipt chain verified",
@@ -371,17 +419,28 @@ def detect_unexplained_variance(blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
         r"^.+: expected (ALLOW|DENY|FAIL_CLOSED), got (ALLOW|DENY|FAIL_CLOSED)",
         r"^admissibility=",
         r"^Governance Matrix:",
+        r"^Governance Matrix complete",
         r"^Random Sweep:",
+        r"^Random Sweep complete",
+        r"^Alignment:",
         r"^Phase 1:",
         r"^Phase 2:",
     ]
 
     issues = []
+
     for block in blocks:
+        json_state = {"pending_json": 0, "json_depth": 0}
+
         for line in block["output"].splitlines():
             line_stripped = line.strip()
+
             if not line_stripped:
                 continue
+
+            if is_inside_json_block_state(line, json_state):
+                continue
+
             if not any(re.match(pattern, line_stripped) for pattern in known_patterns):
                 issues.append(f"Unrecognized: '{line_stripped[:80]}'")
 
@@ -401,7 +460,7 @@ def detect_unexplained_variance(blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def validate_admissibility_alignment(matrix: Dict[str, Any] | None, sweep: Dict[str, Any] | None) -> Dict[str, Any]:
+def validate_admissibility_alignment(matrix: Optional[Dict[str, Any]], sweep: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     reports = [report for report in (matrix, sweep) if report]
     if not reports:
         return {
@@ -415,13 +474,17 @@ def validate_admissibility_alignment(matrix: Dict[str, Any] | None, sweep: Dict[
     if matrix:
         if matrix.get("error"):
             issues.append(matrix["error"])
-        elif not matrix.get("all_pass", False):
+        elif matrix.get("all_aligned") is False:
             issues.append("Governance matrix contains failed classifications.")
+        elif "alignment_pass_rate" in matrix and matrix.get("alignment_pass_rate") != 1.0:
+            issues.append(f"Governance matrix alignment below 100%: {matrix.get('alignment_pass_rate')}")
 
     if sweep:
         if sweep.get("error"):
             issues.append(sweep["error"])
-        elif sweep.get("accuracy") != 1.0:
+        elif "alignment_rate" in sweep and sweep.get("alignment_rate") != 1.0:
+            issues.append(f"Random sweep alignment below 100%: {sweep.get('alignment_rate')}")
+        elif "accuracy" in sweep and sweep.get("accuracy") != 1.0:
             issues.append(f"Random sweep accuracy below 100%: {sweep.get('accuracy')}")
 
     score = 1.0 if not issues else max(0.0, 1.0 - (len(issues) * 0.4))
@@ -539,6 +602,18 @@ def reconstruct(run_dir: Path) -> Dict[str, Any]:
     }
 
 
+def matrix_case_expected(case: Dict[str, Any]) -> Any:
+    return case.get("formal_expected", case.get("expected"))
+
+
+def matrix_case_result(case: Dict[str, Any]) -> str:
+    if "alignment" in case:
+        return "PASS" if case["alignment"] else "FAIL"
+    if "pass" in case:
+        return "PASS" if case["pass"] else "FAIL"
+    return "PASS" if case.get("actual") == matrix_case_expected(case) else "FAIL"
+
+
 def write_reconstruction_report(run_dir: Path, data: Dict[str, Any]) -> Path:
     report_path = run_dir / "reconstruction.md"
 
@@ -581,7 +656,7 @@ def write_reconstruction_report(run_dir: Path, data: Dict[str, Any]) -> Path:
         else:
             score_text = f"{score:.0%}"
             status = "PASS" if score >= 0.95 else "WARN" if score >= 0.80 else "FAIL"
-        lines.append(f"| {axis} | {weight:.0%} | {score_text} | {status} — {reason} |")
+        lines.append(f"| {axis} | {weight:.0%} | {score_text} | {status} â {reason} |")
 
     rec = data["reconstruction"]
 
@@ -590,7 +665,7 @@ def write_reconstruction_report(run_dir: Path, data: Dict[str, Any]) -> Path:
     if rec["state_transitions"]:
         lines.append("### State Transitions")
         for transition in rec["state_transitions"]:
-            lines.append(f"- `{transition['from']}` → `{transition['to']}` via `{transition['source']}`")
+            lines.append(f"- `{transition['from']}` â `{transition['to']}` via `{transition['source']}`")
         lines.append("")
 
     if rec["receipts"]:
@@ -625,21 +700,26 @@ def write_reconstruction_report(run_dir: Path, data: Dict[str, Any]) -> Path:
         lines.append("|--------|----------|--------|---------------|-------|--------|")
         for case in matrix.get("cases", []):
             admissibility = case.get("admissibility", {})
-            result = "PASS" if case.get("pass") else "FAIL"
+            expected = matrix_case_expected(case)
+            result = matrix_case_result(case)
             lines.append(
-                f"| `{case.get('action')}` | {case.get('expected')} | {case.get('actual')} | "
+                f"| `{case.get('action')}` | {expected} | {case.get('actual')} | "
                 f"{admissibility.get('admissibility')} | {admissibility.get('invariant')} | {result} |"
             )
         lines.append("")
 
     sweep = rec["gcat_bcat"].get("sweep_report")
     if sweep and not sweep.get("error"):
+        correct = sweep.get("correct_classifications")
+        total = sweep.get("total_samples")
+        rate = sweep.get("alignment_rate", sweep.get("accuracy"))
+
         lines.append("### Random Sweep")
         lines.append("")
         lines.append(f"- Seed: `{sweep.get('seed')}`")
         lines.append(f"- Samples per phase: `{sweep.get('samples_per_phase')}`")
-        lines.append(f"- Accuracy: `{sweep.get('accuracy')}`")
-        lines.append(f"- Correct classifications: `{sweep.get('correct_classifications')}/{sweep.get('total_samples')}`")
+        lines.append(f"- Alignment rate: `{rate}`")
+        lines.append(f"- Correct classifications: `{correct}/{total}`")
         lines.append("")
 
     lines.extend(
