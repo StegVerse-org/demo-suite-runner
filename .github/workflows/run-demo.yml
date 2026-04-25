@@ -51,6 +51,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Clear cache
+        run: |
+          rm -rf scripts/__pycache__ scripts/*.pyc
+          git checkout -- scripts/
+          git pull origin main
+
       
       - name: Run demo suite
         run: |
