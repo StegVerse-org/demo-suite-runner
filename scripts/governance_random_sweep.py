@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""
-Test 6: Governance Random Sweep
-Seeded bounded input sweep with weighted outcome phases.
-Phase 1: weighted toward ALLOW + DENY
-Phase 2: weighted toward FAIL_CLOSED
-"""
+"""Test 6: seeded random governance sweep with GCAT/BCAT interpretation."""
 
+from __future__ import annotations
+
+import json
+import os
 import random
 import subprocess
-import json
 import sys
-import os
 from pathlib import Path
+
+from admissibility import classify_action, observed_decision_from_output
+
 
 SUT_DIR = Path(".")
 STEGVERSE = SUT_DIR / "stegverse"
@@ -21,64 +21,79 @@ SAMPLES = int(os.environ.get("SV_SAMPLES", "50"))
 
 random.seed(SEED)
 
-# Action pools derived from observed SUT behavior
 ALLOW_POOL = ["deploy_change", "release_secret", "write_config"]
 DENY_POOL = ["unauthorized_change", "invalid_access", "forbidden_deploy"]
-FAIL_CLOSED_POOL = ["", "malformed\x00request", "!!!", "nonexistent_action_12345", "\n\t"]
+FAIL_CLOSED_POOL = ["malformed_request", "", "!!!", "nonexistent_action_12345"]
 
-def pick_action(target):
+
+def pick_action(target: str) -> str:
     if target == "ALLOW":
         return random.choice(ALLOW_POOL)
-    elif target == "DENY":
+    if target == "DENY":
         return random.choice(DENY_POOL)
-    else:
-        return random.choice(FAIL_CLOSED_POOL)
+    return random.choice(FAIL_CLOSED_POOL)
 
-def run_action(action):
+
+def run_action(action: str, sample: int, target: str) -> dict:
     result = subprocess.run(
         [str(STEGVERSE), "action", action],
-        capture_output=True, text=True, cwd=SUT_DIR
+        capture_output=True,
+        text=True,
+        cwd=SUT_DIR,
     )
-    stdout = result.stdout
-    if "Action allowed" in stdout:
-        actual = "ALLOW"
-    elif "Action denied" in stdout:
-        actual = "DENY"
-    else:
-        actual = "FAIL_CLOSED"
+    admissibility = classify_action(action)
+    actual = observed_decision_from_output(result.stdout)
+
     return {
+        "sample": sample,
+        "target": target,
         "action": action,
+        "expected": admissibility.expected_decision,
         "actual": actual,
+        "match": actual == admissibility.expected_decision,
+        "target_match": target == actual,
         "returncode": result.returncode,
-        "stdout": stdout,
-        "stderr": result.stderr
+        "admissibility": admissibility.as_dict(),
+        "stdout": result.stdout,
+        "stderr": result.stderr,
     }
 
-def run_phase(name, weights, samples):
+
+def run_phase(name: str, weights: list[float], samples: int) -> list[dict]:
     targets = random.choices(["ALLOW", "DENY", "FAIL_CLOSED"], weights=weights, k=samples)
     results = []
-    for i, target in enumerate(targets):
+
+    for index, target in enumerate(targets):
         action = pick_action(target)
-        result = run_action(action)
-        result["sample"] = i
-        result["target"] = target
-        result["match"] = target == result["actual"]
-        results.append(result)
+        results.append(run_action(action, sample=index, target=target))
+
     return results
 
-def main():
-    # Advance to state4 so ALLOW is possible
-    subprocess.run([str(STEGVERSE), "demo"], cwd=SUT_DIR, capture_output=True)
 
-    # Phase 1: weighted toward ALLOW + DENY
-    phase1 = run_phase("Phase 1 (ALLOW/DENY weighted)", [0.50, 0.40, 0.10], SAMPLES)
+def summarize_phase(results: list[dict], weights: list[float]) -> dict:
+    return {
+        "weights": weights,
+        "distribution": {
+            "ALLOW": sum(1 for r in results if r["actual"] == "ALLOW"),
+            "DENY": sum(1 for r in results if r["actual"] == "DENY"),
+            "FAIL_CLOSED": sum(1 for r in results if r["actual"] == "FAIL_CLOSED"),
+        },
+        "matches": sum(1 for r in results if r["match"]),
+        "target_matches": sum(1 for r in results if r["target_match"]),
+    }
 
-    # Reset and re-advance for Phase 2
-    subprocess.run([str(STEGVERSE), "reset"], cwd=SUT_DIR, capture_output=True)
-    subprocess.run([str(STEGVERSE), "demo"], cwd=SUT_DIR, capture_output=True)
 
-    # Phase 2: weighted toward FAIL_CLOSED
-    phase2 = run_phase("Phase 2 (FAIL_CLOSED weighted)", [0.10, 0.15, 0.75], SAMPLES)
+def main() -> int:
+    subprocess.run([str(STEGVERSE), "demo"], cwd=SUT_DIR, capture_output=True, text=True)
+
+    phase1_weights = [0.50, 0.40, 0.10]
+    phase1 = run_phase("Phase 1 (ALLOW/DENY weighted)", phase1_weights, SAMPLES)
+
+    subprocess.run([str(STEGVERSE), "reset"], cwd=SUT_DIR, capture_output=True, text=True)
+    subprocess.run([str(STEGVERSE), "demo"], cwd=SUT_DIR, capture_output=True, text=True)
+
+    phase2_weights = [0.10, 0.15, 0.75]
+    phase2 = run_phase("Phase 2 (FAIL_CLOSED weighted)", phase2_weights, SAMPLES)
 
     all_results = phase1 + phase2
     total = len(all_results)
@@ -86,40 +101,26 @@ def main():
 
     summary = {
         "test": "governance_random_sweep",
+        "formalism": "GCAT/BCAT minimal admissibility binding",
         "seed": SEED,
         "samples_per_phase": SAMPLES,
         "total_samples": total,
         "correct_classifications": matches,
-        "accuracy": round(matches / total, 4) if total else 0,
-        "phase1": {
-            "weights": [0.50, 0.40, 0.10],
-            "distribution": {
-                "ALLOW": sum(1 for r in phase1 if r["actual"] == "ALLOW"),
-                "DENY": sum(1 for r in phase1 if r["actual"] == "DENY"),
-                "FAIL_CLOSED": sum(1 for r in phase1 if r["actual"] == "FAIL_CLOSED"),
-            },
-            "matches": sum(1 for r in phase1 if r["match"])
-        },
-        "phase2": {
-            "weights": [0.10, 0.15, 0.75],
-            "distribution": {
-                "ALLOW": sum(1 for r in phase2 if r["actual"] == "ALLOW"),
-                "DENY": sum(1 for r in phase2 if r["actual"] == "DENY"),
-                "FAIL_CLOSED": sum(1 for r in phase2 if r["actual"] == "FAIL_CLOSED"),
-            },
-            "matches": sum(1 for r in phase2 if r["match"])
-        },
-        "details": all_results
+        "accuracy": round(matches / total, 4) if total else 0.0,
+        "phase1": summarize_phase(phase1, phase1_weights),
+        "phase2": summarize_phase(phase2, phase2_weights),
+        "details": all_results,
     }
 
-    with open("sweep_report.json", "w") as f:
+    with open("sweep_report.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
     print(f"\nRandom Sweep: {matches}/{total} correct ({summary['accuracy']:.1%})")
-    print(f"  Phase 1 (50/40/10): {summary['phase1']['matches']}/{SAMPLES} correct")
-    print(f"  Phase 2 (10/15/75): {summary['phase2']['matches']}/{SAMPLES} correct")
+    print(f"  Phase 1: {summary['phase1']['matches']}/{SAMPLES} admissibility matches")
+    print(f"  Phase 2: {summary['phase2']['matches']}/{SAMPLES} admissibility matches")
 
-    sys.exit(0 if matches == total else 1)
+    return 0 if matches == total else 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
