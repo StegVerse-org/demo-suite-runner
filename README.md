@@ -1,122 +1,48 @@
-# StegVerse Demo Suite Runner
+# StegVerse Demo Suite Runner — Deploy Bundle
 
-> **Proof that AI can be held accountable.**
+## Files Included
 
-Every day, AI systems make decisions that affect people's lives. Right now, most of those decisions happen in a black box. StegVerse changes that.
+| File | Purpose |
+|---|---|
+| `scripts/receipt_id.py` | Deterministic receipt ID generation |
+| `scripts/governed_action.py` | Gate action handler with FAIL_CLOSED fix |
+| `scripts/governed_mutation.py` | State mutation with deterministic logging |
+| `scripts/llm_adapter.py` | Multi-provider LLM adapter (OpenAI, Kimi, Anthropic, Local) |
+| `scripts/demo_suite_runner.py` | Main 3-pass weighted test runner |
+| `.github/workflows/ci.txt` | Repo-agnostic CI workflow (rename to `.yml` after upload) |
+| `requirements.txt` | Python dependencies |
 
-Before any AI action happens, it is **proposed, evaluated, and either allowed or denied**. Every decision leaves a **receipt** — proof that someone checked. Every run can be **reconstructed** later to see exactly what happened. Every reconstruction gets a **confidence score** — an honest number that says how sure we are.
-
----
-
-## Try It in 30 Seconds
-
-1. Go to **Actions** tab above
-2. Tap **"Run Demo Suite"**
-3. Select **"full"** mode, **"hard"** reset
-4. Tap **"Run workflow"**
-5. Wait ~2 minutes
-6. Download the results
-
-You will get a folder with a **report**, **reconstruction timeline**, and **confidence score**.
-
----
-
-## The Confidence Score
-
-A number between 0% and 100% that answers one question:
-
-> *"Based only on what we can observe, how sure are we that the reconstructed record matches what actually happened?"*
-
-| Range | Label | Meaning |
-|-------|-------|---------|
-| 95-100% | High | Reliable for audit, compliance, or legal evidence |
-| 80-94% | Moderate | Usable with documented caveats; human review recommended |
-| <80% | Low | Insufficient for formal purposes; investigate before reliance |
-
-For **NIST AI RMF**, **EU AI Act**, and corporate governance frameworks, this provides measurable transparency, bounded trust, and reproducible evidence.
-
----
-
-## Artifacts
-
-| File | Audience |
-|------|----------|
-| `report.md` | Everyone — pass/fail summary |
-| `reconstruction.md` | Everyone — step-by-step timeline + confidence score |
-| `reconstruction.json` | Developers — structured data for tools |
-| `summary.json` | Developers — technical metadata |
-| `commands.log` | Auditors — every command that ran |
-| `stdout.log` | Auditors — every output captured |
-| `stderr.log` | Auditors — every error or warning |
-
----
-
-## System Architecture
-
-```
-SDK (external entry)
-    |
-    v
-demo-suite-runner (this repo) -- validates from outside
-    |
-    +-- runner/main.py          orchestration engine
-    +-- configs/*.json          command sequences per mode
-    +-- scripts/                test implementations
-    +-- runs/                   per-run artifacts (timestamped)
-    +-- reports/                latest summarized outputs
-    |
-    v
-stegverse-demo-suite (system under test)
-    |
-    v
-artifacts: stdout, stderr, receipts, state transitions
-```
-
----
-
-## Supported Modes
-
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `execution_governance` | Baseline execution validation | Quick sanity check |
-| `mutation_governance` | State mutation + receipt validation | Verify mutation paths |
-| `governance_matrix` | Deterministic ALLOW/DENY/FAIL_CLOSED | Compliance proof |
-| `governance_random_sweep` | Seeded bounded input sweep | Robustness proof |
-| `full` | All tests combined | Complete validation |
-
----
-
-## Quick CLI
+## Quick Start
 
 ```bash
-# Full run with reconstruction
-python runner/main.py --mode full --reset hard
+# 1. Install dependencies
+pip install -r requirements.txt
 
-# Replay a previous run
-python scripts/replay.py runs/2026-04-24T13-14-00Z_full work/stegverse-demo-suite
+# 2. Run deterministic demo suite
+python scripts/demo_suite_runner.py --seed "my-test-seed" --tests 10 --mode deterministic --cache-clear
 
-# Reconstruct a previous run
-python scripts/reconstruct.py runs/2026-04-24T13-14-00Z_full
+# 3. Run with LLM analysis
+python scripts/demo_suite_runner.py --seed "my-test-seed" --llm-provider kimi --llm-model "kimi-k2-6" --output result.json
 ```
 
----
+## Key Design Decisions
 
-## Documentation
+1. **Receipt Before Evaluation**: `receipt_id.py` generates receipts BEFORE gate evaluation, fixing the malformed_request FAIL_CLOSED bug.
+2. **Deterministic by Default**: All tests reproducible via `--seed`. Same seed → same receipts → same results.
+3. **3-Pass Weighted Testing**: Pass 2 biases ~30% away from Pass 1 dominant result. Pass 3 biases ~50% away from aggregate.
+4. **LLM Adapter**: Provider-agnostic with budget tracking, receipt tagging, and optional gate integration.
+5. **CI Cache Clear**: Every workflow run starts with cache clear to prevent state leakage between runs.
 
-| Topic | File |
-|-------|------|
-| Receipt ID determinism | [`docs/RECEIPT_ID_DETERMINISM.md`](docs/RECEIPT_ID_DETERMINISM.md) |
-| Mutation path governance | [`docs/MUTATION_PATH.md`](docs/MUTATION_PATH.md) |
-| GCAT/BCAT enforcement | [`docs/GCAT_BCAT_ENFORCEMENT.md`](docs/GCAT_BCAT_ENFORCEMENT.md) |
-| Reconstruction patches | [`docs/RECONSTRUCTION_PATCHES.md`](docs/RECONSTRUCTION_PATCHES.md) |
-| Full technical specification | [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) |
+## Integration Points
 
----
+- **StegDB**: Wire `_log_mutation()` in `governed_mutation.py` and `_log()` in `governed_action.py` to your StegDB API.
+- **GCAT/BCAT**: Replace `_run_gate()` in `governed_action.py` with your actual invariant checks.
+- **LLM Providers**: Set API keys via environment variables (`OPENAI_API_KEY`, `KIMI_API_KEY`, `ANTHROPIC_API_KEY`).
 
-## Notes
+## Deploy Checklist
 
-- This repository validates the pipeline, not the full production system.
-- Deterministic tests prove correctness; random sweeps prove robustness.
-- All runs are reproducible via seed and reset mode.
-- Confidence scores are heuristic, not cryptographic. They reflect observable boundaries.
-- For questions: see [StegVerse SDK documentation](https://github.com/StegVerse-org/StegVerse-SDK)
+- [ ] Rename `.github/workflows/ci.txt` to `.github/workflows/ci.yml`
+- [ ] Add API keys to GitHub Secrets (if using LLM adapter in CI)
+- [ ] Wire StegDB logging endpoints
+- [ ] Replace placeholder gate logic with actual GCAT/BCAT invariants
+- [ ] Test on target device (iPhone-compatible pathing verified)
