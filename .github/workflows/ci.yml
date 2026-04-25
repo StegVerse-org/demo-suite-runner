@@ -1,0 +1,140 @@
+name: StegVerse Formalism Sandbox CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 0 * * 0"  # Weekly Sunday midnight
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ============================================
+  # EPHEMERAL SANDBOX TESTS
+  # ============================================
+  sandbox-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install numpy
+          pip install pytest
+
+      - name: Run GCAT Invariant Tests
+        run: |
+          python -c "
+          from invariants.gcat_invariants import GCATInvariants
+          gcat = GCATInvariants()
+
+          # Test I1: Simplex non-negativity
+          r1 = gcat.check_simplex_non_negativity([1.0, 2.0, 3.0])
+          assert r1.passed, 'I1 should pass for positive edges'
+          print(f'I1: {r1.reasoning}')
+
+          r1_fail = gcat.check_simplex_non_negativity([1.0, -1.0, 3.0])
+          assert not r1_fail.passed, 'I1 should fail for negative edge'
+          print(f'I1 fail: {r1_fail.reasoning}')
+
+          # Test I2: Triangle inequality
+          r2 = gcat.check_triangle_inequality([(3.0, 4.0, 5.0)])
+          assert r2.passed, '3-4-5 triangle should satisfy inequality'
+          print(f'I2: {r2.reasoning}')
+
+          r2_fail = gcat.check_triangle_inequality([(1.0, 1.0, 3.0)])
+          assert not r2_fail.passed, '1-1-3 should violate triangle inequality'
+          print(f'I2 fail: {r2_fail.reasoning}')
+
+          # Test I4: Alpha bounds
+          r4 = gcat.check_admissibility_scalar_bounds(0.5)
+          assert r4.passed, 'Alpha=0.5 should be in bounds'
+          print(f'I4: {r4.reasoning}')
+
+          r4_fail = gcat.check_admissibility_scalar_bounds(1.5)
+          assert not r4_fail.passed, 'Alpha=1.5 should be out of bounds'
+          print(f'I4 fail: {r4_fail.reasoning}')
+
+          print('\nAll GCAT invariant tests passed!')
+          "
+
+      - name: Run BCAT Boundary Tests
+        run: |
+          python -c "
+          from invariants.bcat_invariants import BCATInvariants
+          bcat = BCATInvariants()
+
+          # Test B1: Boundary proximity
+          b1_warn = bcat.check_boundary_proximity(0.05)
+          assert b1_warn.metadata['status'] == 'WARNING', 'Alpha=0.05 should be warning'
+          print(f'B1 warning: {b1_warn.reasoning}')
+
+          b1_safe = bcat.check_boundary_proximity(0.5)
+          assert b1_safe.metadata['status'] == 'SAFE', 'Alpha=0.5 should be safe'
+          print(f'B1 safe: {b1_safe.reasoning}')
+
+          # Test B3: Edge collapse
+          b3 = bcat.check_edge_collapse([1e-12, 1.0, 1.0])
+          assert b3.metadata['status'] == 'COLLAPSED', '1e-12 edge should be collapsed'
+          print(f'B3: {b3.reasoning}')
+
+          print('\nAll BCAT boundary tests passed!')
+          "
+
+      - name: Run Ephemeral Sandbox
+        run: |
+          python -c "
+          from sandbox.ephemeral_sandbox import EphemeralSandbox
+
+          sandbox = EphemeralSandbox(seed='ci-test', experiment_name='ci')
+
+          result = sandbox.run_experiment({
+              'test_simplex': True,
+              'dimension': 3,
+              'test_admissibility': True,
+              'boundary_proximity': 'none'
+          })
+
+          assert result.aggregate['total_invariants'] > 0
+          print(f'Sandbox experiment: {result.experiment_id}')
+          print(f'Pass rate: {result.aggregate["pass_rate"]:.1%}')
+
+          # Verify ephemeral: temp dir should not exist
+          import tempfile, os
+          temp_dirs = [d for d in os.listdir(tempfile.gettempdir()) if d.startswith('stegverse_sandbox_')]
+          assert len(temp_dirs) == 0, f'Ephemeral dirs not cleaned: {temp_dirs}'
+          print('Ephemeral guarantee verified: no residual temp directories')
+          "
+
+      - name: Run Experiment Suite (Quick)
+        run: |
+          python -c "
+          from experiments.experiment_suite import ExperimentSuites
+
+          suites = ExperimentSuites(base_seed='ci-quick')
+
+          # Run only Suite 1 (fastest)
+          results = suites.suite_edge_collapse_convergence(num_steps=5)
+
+          print(f'\nSuite 1 completed: {len(results)} experiments')
+
+          # Check convergence pattern
+          pass_rates = [r.aggregate['pass_rate'] for r in results]
+          print(f'Pass rates across collapse: {pass_rates}')
+          "
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-results
+          path: formalism_exploration_results.json
+        if: always()
