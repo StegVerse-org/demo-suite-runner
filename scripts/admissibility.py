@@ -9,6 +9,7 @@ test cases and the GCAT/BCAT admissibility language used by the SDK demos.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 from math import isclose
 from typing import Dict, Optional
 
@@ -53,18 +54,14 @@ class AdmissibilityResult:
 
 PARAMS = GCATParameters()
 
-# Current demo baseline. This is intentionally simple: the test is about making
-# the admissibility basis explicit in reports, not pretending this is the full
-# production state model.
 BASE_STATE = StateVector(g=0.30, c=0.30, a=0.20, t=0.20)
 
 ACTION_PROJECTIONS: Dict[str, Optional[StateVector]] = {
-    # ADMISSIBLE: autonomy stays below capacity.
+    # This is intentionally projected as inadmissible under the minimal demo
+    # binding. Enforcement should prevent it before the SUT can execute it.
     "deploy_change": StateVector(g=0.30, c=0.30, a=0.08, t=0.32),
-    "release_secret": StateVector(g=0.30, c=0.30, a=0.08, t=0.32),
-    "write_config": StateVector(g=0.30, c=0.30, a=0.08, t=0.32),
 
-    # INADMISSIBLE: autonomy exceeds legitimacy capacity.
+    # Known inadmissible examples.
     "unauthorized_change": StateVector(g=0.25, c=0.25, a=0.35, t=0.15),
     "invalid_access": StateVector(g=0.25, c=0.25, a=0.35, t=0.15),
     "forbidden_deploy": StateVector(g=0.25, c=0.25, a=0.35, t=0.15),
@@ -88,6 +85,11 @@ def invariant(x: StateVector, params: GCATParameters = PARAMS) -> float:
 def bcat_simplex_valid(x: StateVector, tolerance: float = 1e-9) -> bool:
     values_in_range = all(0.0 <= value <= 1.0 for value in (x.g, x.c, x.a, x.t))
     return values_in_range and isclose(x.g + x.c + x.a + x.t, 1.0, abs_tol=tolerance)
+
+
+def receipt_id_for(action: str, decision: str) -> str:
+    material = f"gcat-bcat:{action}:{decision}".encode("utf-8")
+    return sha256(material).hexdigest()[:16].upper()
 
 
 def classify_action(action: str) -> AdmissibilityResult:
@@ -139,8 +141,11 @@ def classify_action(action: str) -> AdmissibilityResult:
 
 
 def observed_decision_from_output(stdout: str) -> str:
-    if "Action allowed" in stdout:
+    normalized = stdout.upper()
+    if "FAIL_CLOSED" in normalized or "FAIL CLOSED" in normalized:
+        return "FAIL_CLOSED"
+    if "ACTION ALLOWED" in normalized:
         return "ALLOW"
-    if "Action denied" in stdout:
+    if "ACTION DENIED" in normalized:
         return "DENY"
     return "FAIL_CLOSED"
