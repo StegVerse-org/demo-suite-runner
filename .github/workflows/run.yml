@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -55,23 +55,21 @@ jobs:
       - name: Clear cache
         run: |
           rm -rf scripts/__pycache__ scripts/*.pyc
-          git checkout -- scripts/
-          git pull origin main
+          rm -rf runner/__pycache__ runner/*.pyc
 
-      
       - name: Run demo suite
         run: |
           RECON_FLAG=""
           if [ "${{ github.event.inputs.reconstruct }}" == "false" ]; then
             RECON_FLAG="--no-reconstruct"
           fi
-          
+
           if [ "${{ github.event.inputs.mode }}" == "governance_random_sweep" ]; then
             python runner/main.py --mode ${{ github.event.inputs.mode }} --reset ${{ github.event.inputs.reset }} --seed ${{ github.event.inputs.seed }} --samples ${{ github.event.inputs.samples }} $RECON_FLAG
           else
             python runner/main.py --mode ${{ github.event.inputs.mode }} --reset ${{ github.event.inputs.reset }} $RECON_FLAG
           fi
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: always()
