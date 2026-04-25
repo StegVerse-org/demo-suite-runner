@@ -1,6 +1,6 @@
 {
   "commands": [
     "./stegverse reset",
-    "python3 scripts/governance_matrix.py"
+    "python3 ../../scripts/governance_matrix.py"
   ]
 }

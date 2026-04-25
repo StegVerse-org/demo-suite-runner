@@ -8,6 +8,8 @@
     "./stegverse action deploy_change",
     "./stegverse mutate deploy",
     "./stegverse mutation-receipts",
-    "./stegverse reports"
+    "./stegverse reports",
+    "python3 ../../scripts/governance_matrix.py",
+    "python3 ../../scripts/governance_random_sweep.py"
   ]
 }
