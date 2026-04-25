@@ -1,0 +1,86 @@
+{
+  "total_runs": 2,
+  "total_samples": 200,
+  "cumulative_counts": {
+    "ALLOW": 0,
+    "DENY": 200,
+    "FAIL_CLOSED": 0
+  },
+  "run_history": [
+    {
+      "timestamp": "2026-04-25T06:20:34.310171Z",
+      "seed": 42,
+      "samples": 100,
+      "counts": {
+        "ALLOW": 0,
+        "DENY": 100,
+        "FAIL_CLOSED": 0
+      },
+      "frequencies": {
+        "ALLOW": 0.0,
+        "DENY": 1.0,
+        "FAIL_CLOSED": 0.0
+      },
+      "entropy": 0.0,
+      "admissible_volume_estimate": 0.0,
+      "boundary_proximity": {
+        "mean": 0.216707,
+        "min": 0.049573,
+        "max": 0.249995,
+        "count": 100
+      }
+    },
+    {
+      "timestamp": "2026-04-25T06:56:46.771492Z",
+      "seed": 42,
+      "samples": 100,
+      "counts": {
+        "ALLOW": 0,
+        "DENY": 100,
+        "FAIL_CLOSED": 0
+      },
+      "frequencies": {
+        "ALLOW": 0.0,
+        "DENY": 1.0,
+        "FAIL_CLOSED": 0.0
+      },
+      "entropy": 0.0,
+      "admissible_volume_estimate": 0.0,
+      "scalar": {
+        "mean": 0.385943,
+        "min": null,
+        "max": 0.971481,
+        "variance": 0.091433,
+        "by_outcome": {
+          "ALLOW": null,
+          "DENY": {
+            "mean": 0.385943,
+            "min": 0.0,
+            "max": 0.971481,
+            "count": 100
+          },
+          "FAIL_CLOSED": null
+        }
+      },
+      "boundary_proximity": {
+        "mean": 0.216707,
+        "min": 0.049573,
+        "max": 0.249995,
+        "count": 100
+      }
+    }
+  ],
+  "cumulative_frequencies": {
+    "ALLOW": 0.0,
+    "DENY": 1.0,
+    "FAIL_CLOSED": 0.0
+  },
+  "cumulative_entropy": 0.0,
+  "scalar_history": [
+    {
+      "run": 2,
+      "mean_scalar": 0.385943,
+      "allow_scalars": {}
+    }
+  ]
+}
