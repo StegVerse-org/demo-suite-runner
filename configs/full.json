@@ -5,7 +5,7 @@
     "./stegverse explain",
     "./stegverse demo",
     "./stegverse verify",
-    "./stegverse action deploy_change",
+    "python3 ../../scripts/governed_action.py deploy_change",
     "./stegverse mutate deploy",
     "./stegverse mutation-receipts",
     "./stegverse reports",
