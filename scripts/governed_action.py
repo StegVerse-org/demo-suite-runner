@@ -2,8 +2,16 @@
 """
 Governed Action Script
 
-Validates deploy_change action against GCAT/BCAT admissibility.
+Validates any action against GCAT/BCAT admissibility.
 Generates deterministic receipt IDs.
+
+Usage:
+    python3 governed_action.py <action_name>
+
+    Examples:
+        python3 governed_action.py deploy_change
+        python3 governed_action.py unauthorized_change
+        python3 governed_action.py malformed_request
 """
 
 import json
@@ -16,32 +24,43 @@ if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
 from receipt_id import generate_receipt_id
+from admissibility import classify_action, observed_decision_from_output
 
 
 def main():
-    action = "deploy_change"
-    state = "state0"  # Or get from runtime
+    # Accept action from command line, default to deploy_change
+    action = sys.argv[1] if len(sys.argv) > 1 else "deploy_change"
 
-    # GCAT/BCAT admissibility check (your existing logic)
-    admissibility = check_admissibility(action, state)
+    # Use the centralized admissibility classifier
+    result = classify_action(action)
+    admissibility = result.as_dict()
 
-    if admissibility["expected_decision"] == "DENY":
+    expected_decision = admissibility["expected_decision"]
+
+    # Determine output format based on decision type
+    if expected_decision == "FAIL_CLOSED":
+        decision = "FAIL_CLOSED"
+        reason = admissibility["reason"]
+        status_line = f"Action fail_closed: {action}"
+    elif expected_decision == "DENY":
         decision = "DENY"
-        reason = "Projected transition violates admissibility."
-    else:
+        reason = admissibility["reason"]
+        status_line = f"Action denied: {action}"
+    else:  # ALLOW
         decision = "ALLOW"
-        reason = "Admissible transition."
+        reason = admissibility["reason"]
+        status_line = f"Action allowed: {action}"
 
-    # Generate deterministic receipt ID
+    # Generate deterministic receipt ID using the ACTUAL action name
     receipt_id = generate_receipt_id(
         action=action,
         previous_id="GENESIS",  # Action receipts start fresh
         decision=decision,
-        state_snapshot=state
+        state_snapshot="state0"  # Matrix tests run from base state
     )
 
-    # Output format (must match existing expectations)
-    print(f"Action denied: {action}")
+    # Output format (must match observed_decision_from_output expectations)
+    print(status_line)
     print(f"receipt_id: {receipt_id}")
     print(f"decision: {decision}")
     print(f"reason: {reason}")
@@ -49,25 +68,6 @@ def main():
     print(json.dumps(admissibility, indent=2))
 
     return 0
-
-
-def check_admissibility(action, state):
-    """Your existing GCAT/BCAT logic."""
-    # ... existing implementation ...
-    return {
-        "action": action,
-        "expected_decision": "DENY",
-        "admissibility": "INADMISSIBLE",
-        "basis": "I(x') > 0 or BCAT simplex invalid",
-        "state_before": {"g": 0.3, "c": 0.3, "a": 0.2, "t": 0.2},
-        "projected_state": {"g": 0.3, "c": 0.3, "a": 0.08, "t": 0.32},
-        "lambda_capacity": 0.0288,
-        "invariant": 0.0512,
-        "delta_invariant": -0.1308,
-        "bcat_simplex_sum": 1.0,
-        "bcat_simplex_valid": True,
-        "reason": "Projected transition violates admissibility."
-    }
 
 
 if __name__ == "__main__":
