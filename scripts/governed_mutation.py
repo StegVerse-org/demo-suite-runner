@@ -29,7 +29,6 @@ def main():
     mutation = sys.argv[1] if len(sys.argv) > 1 else "deploy"
 
     # Map mutation to action for admissibility check
-    # deploy -> deploy_change is the known mapping
     action_map = {
         "deploy": "deploy_change",
     }

@@ -24,7 +24,7 @@ if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
 from receipt_id import generate_receipt_id
-from admissibility import classify_action, observed_decision_from_output
+from admissibility import classify_action
 
 
 def main():

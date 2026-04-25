@@ -1,23 +1,20 @@
-
 # ============================================================================
-# STEGVERSE CLI PATCH: mutation-receipts command
+# STEGVERSE CLI: mutation-receipts handler
 # ============================================================================
 # 
-# Location: In the main stegverse script, find the section that handles
-# the "mutation-receipts" argument/command.
-#
-# Replace the existing receipt ID generation with the code below.
+# Add this code to your stegverse CLI script in the mutation-receipts section.
+# It replaces the old ID generation with deterministic IDs.
 #
 # Prerequisites:
-#   1. receipt_id.py must be in the same directory or in PYTHONPATH
-#   2. Or copy the generate_receipt_id function directly into stegverse
+#   1. receipt_id.py must be in the scripts/ directory
+#   2. The stegverse CLI must be able to import from scripts/
 # ============================================================================
 
 import os
 import sys
 
-# Add scripts directory to path if needed
-scripts_dir = os.path.join(os.path.dirname(__file__), '..', 'scripts')
+# Add scripts directory to path
+scripts_dir = os.path.join(os.path.dirname(__file__), 'scripts')
 if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
