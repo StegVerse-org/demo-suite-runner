@@ -3,36 +3,42 @@ StegVerse Receipt ID Generator
 
 All receipt IDs are content-addressable and deterministic.
 This ensures cross-run reproducibility for StegDB canonical monitoring.
+
+Usage:
+    from receipt_id import generate_receipt_id
+
+    rid = generate_receipt_id(
+        action="deploy",
+        previous_id="GENESIS",
+        decision="DENIED",
+        state_snapshot="state4"
+    )
+
+Environment:
+    STEGVERSE_DETERMINISTIC_IDS: true/false (default: true)
+    STEGVERSE_SALT: optional per-deployment secret
 """
 
 import hashlib
 import os
+import uuid
 
 
 def make_receipt_id(action: str, previous_id: str, decision: str, state_snapshot: str) -> str:
     """
     Generate a deterministic receipt ID from semantic content.
 
-    The ID is computed as:
+    Algorithm:
         SHA256(salt:action:previous_id:decision:state_snapshot)[:16].upper()
 
     Args:
-        action: The action name (e.g., "deploy", "deploy_change")
+        action: The action/mutation name (e.g., "deploy", "deploy_change")
         previous_id: Previous receipt ID or "GENESIS"
         decision: "ALLOWED", "DENIED", or "FAIL_CLOSED"
         state_snapshot: Current state identifier (e.g., "state4")
 
     Returns:
         16-character uppercase hexadecimal string
-
-    Examples:
-        >>> make_receipt_id("deploy", "GENESIS", "DENIED", "state4")
-        'A1B2C3D4E5F67890'  # deterministic for these inputs
-
-    Environment:
-        STEGVERSE_SALT: Optional per-deployment secret. If set, adds
-        unpredictability to IDs while maintaining cross-run stability
-        within the same deployment.
     """
     salt = os.environ.get('STEGVERSE_SALT', '')
     content = f"{salt}:{action}:{previous_id}:{decision}:{state_snapshot}"
@@ -40,13 +46,7 @@ def make_receipt_id(action: str, previous_id: str, decision: str, state_snapshot
 
 
 def make_receipt_id_legacy() -> str:
-    """
-    Legacy non-deterministic receipt ID generator.
-
-    Used for backward compatibility or when STEGVERSE_DETERMINISTIC_IDS
-    is set to false. Not recommended for production StegDB integration.
-    """
-    import uuid
+    """Legacy non-deterministic generator for backward compatibility."""
     return uuid.uuid4().hex[:16].upper()
 
 
