@@ -1,0 +1,144 @@
+name: Demo Suite Runner v2.0
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_scalar:
+        description: 'Run scalar computation'
+        required: false
+        default: 'true'
+      run_gap:
+        description: 'Run gap instrumentation'
+        required: false
+        default: 'true'
+      run_entity:
+        description: 'Run entity classification'
+        required: false
+        default: 'true'
+      run_cosmology:
+        description: 'Run cosmological mode'
+        required: false
+        default: 'true'
+      run_validation:
+        description: 'Run convergence validation'
+        required: false
+        default: 'true'
+
+jobs:
+  demo-suite:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Cache clear (existing)
+      - name: Clear cache
+        run: echo "Cache cleared"
+
+      # Step 2: Checkout
+      - uses: actions/checkout@v4
+
+      # Step 3: Setup Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Step 4: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      # Step 5: Run base governance tests (existing, PROVEN)
+      - name: Run base governance tests
+        run: |
+          python scripts/receipt_id.py
+          python scripts/governed_action.py
+          python scripts/governed_mutation.py
+
+      # Step 6: Run scalar computation (NEW - Layer 2)
+      - name: Run scalar computation
+        if: github.event.inputs.run_scalar != 'false'
+        run: |
+          python scripts/scalar_engine.py > outputs/scalar_distribution.json
+
+      # Step 7: Run gap instrumentation (NEW - Layer 3)
+      - name: Run gap instrumentation
+        if: github.event.inputs.run_gap != 'false'
+        run: |
+          python scripts/gap_instrument.py > outputs/gap_ledger.json
+
+      # Step 8: Run entity classification (NEW - Layer 4)
+      - name: Run entity classification
+        if: github.event.inputs.run_entity != 'false'
+        run: |
+          python scripts/entity_classifier.py > outputs/entity_classification.json
+
+      # Step 9: Run cosmological mode (NEW - Layer 5)
+      - name: Run cosmological mode
+        if: github.event.inputs.run_cosmology != 'false'
+        run: |
+          python scripts/cosmological_mode.py > outputs/cosmological_report.json
+
+      # Step 10: Run convergence validation (NEW - Layer 6)
+      - name: Run convergence validation
+        if: github.event.inputs.run_validation != 'false'
+        run: |
+          python scripts/convergence_validator.py > outputs/validation_report.md
+
+      # Step 11: Generate unified report (NEW)
+      - name: Generate unified report
+        run: |
+          python -c "
+          import json
+
+          report = {
+            'version': '2.0',
+            'layers_run': {
+              'scalar': '${{ github.event.inputs.run_scalar }}' != 'false',
+              'gap': '${{ github.event.inputs.run_gap }}' != 'false',
+              'entity': '${{ github.event.inputs.run_entity }}' != 'false',
+              'cosmology': '${{ github.event.inputs.run_cosmology }}' != 'false',
+              'validation': '${{ github.event.inputs.run_validation }}' != 'false'
+            }
+          }
+
+          # Load outputs if available
+          try:
+            with open('outputs/scalar_distribution.json') as f:
+              report['scalar'] = json.load(f)
+          except: pass
+
+          try:
+            with open('outputs/cosmological_report.json') as f:
+              report['cosmology'] = json.load(f)
+          except: pass
+
+          with open('outputs/sweep_report_v2.md', 'w') as f:
+            f.write('# GCAT/BCAT Demo Suite Report v2.0\n\n')
+            f.write(f'**Validation:** {report.get("validation", {}).get("overall", "N/A")}\n\n')
+            f.write('## Energy Budget\n\n')
+            if 'cosmology' in report:
+              eb = report['cosmology'].get('energy_budget', {})
+              for k, v in eb.items():
+                f.write(f'- **{k}:** {v*100:.2f}%\n')
+            f.write('\n## Life Fraction\n\n')
+            if 'cosmology' in report:
+              lf = report['cosmology'].get('life_fraction', 0)
+              f.write(f'{lf*100:.4f}%\n')
+
+          print('Unified report generated')
+          "
+
+      # Step 12: Upload artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-suite-v2-artifacts
+          path: |
+            outputs/*.json
+            outputs/*.md
+            outputs/*.txt
