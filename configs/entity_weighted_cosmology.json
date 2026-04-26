@@ -1,0 +1,236 @@
+{
+  "scalar_bins": [
+    {
+      "scalar_center": 0.05,
+      "mean_scalar": 0.2169,
+      "mean_information": 1.5073,
+      "entity_density_log": 80,
+      "time_fraction": 0.01,
+      "weighted_information": 1.5072622807623413e+78,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.15,
+      "mean_scalar": 0.2399,
+      "mean_information": 1.546,
+      "entity_density_log": 60,
+      "time_fraction": 0.02,
+      "weighted_information": 3.092009956890253e+58,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.25,
+      "mean_scalar": 0.2665,
+      "mean_information": 1.5542,
+      "entity_density_log": 40,
+      "time_fraction": 0.03,
+      "weighted_information": 4.6626921163004404e+38,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.35,
+      "mean_scalar": 0.1798,
+      "mean_information": 1.5254,
+      "entity_density_log": 25,
+      "time_fraction": 0.05,
+      "weighted_information": 7.62683240426042e+23,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.45,
+      "mean_scalar": 0.2754,
+      "mean_information": 1.5719,
+      "entity_density_log": 15,
+      "time_fraction": 0.1,
+      "weighted_information": 157190462799507.22,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.5,
+      "mean_scalar": 0.3274,
+      "mean_information": 1.6424,
+      "entity_density_log": 12,
+      "time_fraction": 0.2,
+      "weighted_information": 328481774344.59686,
+      "is_life": true,
+      "life_category": "near-quantum"
+    },
+    {
+      "scalar_center": 0.55,
+      "mean_scalar": 0.3715,
+      "mean_information": 1.6512,
+      "entity_density_log": 15,
+      "time_fraction": 0.15,
+      "weighted_information": 247683615333535.72,
+      "is_life": true,
+      "life_category": "near-quantum"
+    },
+    {
+      "scalar_center": 0.65,
+      "mean_scalar": 0.463,
+      "mean_information": 1.7217,
+      "entity_density_log": 25,
+      "time_fraction": 0.12,
+      "weighted_information": 2.0660651390568525e+24,
+      "is_life": true,
+      "life_category": "classical-critical"
+    },
+    {
+      "scalar_center": 0.75,
+      "mean_scalar": 0.5085,
+      "mean_information": 1.7556,
+      "entity_density_log": 40,
+      "time_fraction": 0.1,
+      "weighted_information": 1.7555715160360545e+39,
+      "is_life": true,
+      "life_category": "classical-critical"
+    },
+    {
+      "scalar_center": 0.85,
+      "mean_scalar": 0.5184,
+      "mean_information": 1.7527,
+      "entity_density_log": 60,
+      "time_fraction": 0.12,
+      "weighted_information": 2.103197950528654e+59,
+      "is_life": true,
+      "life_category": "classical-critical"
+    },
+    {
+      "scalar_center": 0.95,
+      "mean_scalar": 0.719,
+      "mean_information": 1.8649,
+      "entity_density_log": 80,
+      "time_fraction": 0.1,
+      "weighted_information": 1.8649053472491198e+79,
+      "is_life": false,
+      "life_category": "non-life"
+    }
+  ],
+  "total_information": 2.015631575325354e+79,
+  "total_life_information": 2.103197950528654e+59,
+  "life_fraction": 1.0434436413257544e-20,
+  "energy_budget": {
+    "ordinary_matter": 5.217218206628773e-21,
+    "dark_matter": 0.2373893299552783,
+    "dark_energy": 0.7626106700447217
+  },
+  "life_entities": [
+    {
+      "scalar_center": 0.5,
+      "mean_scalar": 0.3274,
+      "mean_information": 1.6424,
+      "entity_density_log": 12,
+      "time_fraction": 0.2,
+      "weighted_information": 328481774344.59686,
+      "is_life": true,
+      "life_category": "near-quantum"
+    },
+    {
+      "scalar_center": 0.55,
+      "mean_scalar": 0.3715,
+      "mean_information": 1.6512,
+      "entity_density_log": 15,
+      "time_fraction": 0.15,
+      "weighted_information": 247683615333535.72,
+      "is_life": true,
+      "life_category": "near-quantum"
+    },
+    {
+      "scalar_center": 0.65,
+      "mean_scalar": 0.463,
+      "mean_information": 1.7217,
+      "entity_density_log": 25,
+      "time_fraction": 0.12,
+      "weighted_information": 2.0660651390568525e+24,
+      "is_life": true,
+      "life_category": "classical-critical"
+    },
+    {
+      "scalar_center": 0.75,
+      "mean_scalar": 0.5085,
+      "mean_information": 1.7556,
+      "entity_density_log": 40,
+      "time_fraction": 0.1,
+      "weighted_information": 1.7555715160360545e+39,
+      "is_life": true,
+      "life_category": "classical-critical"
+    },
+    {
+      "scalar_center": 0.85,
+      "mean_scalar": 0.5184,
+      "mean_information": 1.7527,
+      "entity_density_log": 60,
+      "time_fraction": 0.12,
+      "weighted_information": 2.103197950528654e+59,
+      "is_life": true,
+      "life_category": "classical-critical"
+    }
+  ],
+  "non_life_entities": [
+    {
+      "scalar_center": 0.05,
+      "mean_scalar": 0.2169,
+      "mean_information": 1.5073,
+      "entity_density_log": 80,
+      "time_fraction": 0.01,
+      "weighted_information": 1.5072622807623413e+78,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.15,
+      "mean_scalar": 0.2399,
+      "mean_information": 1.546,
+      "entity_density_log": 60,
+      "time_fraction": 0.02,
+      "weighted_information": 3.092009956890253e+58,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.25,
+      "mean_scalar": 0.2665,
+      "mean_information": 1.5542,
+      "entity_density_log": 40,
+      "time_fraction": 0.03,
+      "weighted_information": 4.6626921163004404e+38,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.35,
+      "mean_scalar": 0.1798,
+      "mean_information": 1.5254,
+      "entity_density_log": 25,
+      "time_fraction": 0.05,
+      "weighted_information": 7.62683240426042e+23,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.45,
+      "mean_scalar": 0.2754,
+      "mean_information": 1.5719,
+      "entity_density_log": 15,
+      "time_fraction": 0.1,
+      "weighted_information": 157190462799507.22,
+      "is_life": false,
+      "life_category": "non-life"
+    },
+    {
+      "scalar_center": 0.95,
+      "mean_scalar": 0.719,
+      "mean_information": 1.8649,
+      "entity_density_log": 80,
+      "time_fraction": 0.1,
+      "weighted_information": 1.8649053472491198e+79,
+      "is_life": false,
+      "life_category": "non-life"
+    }
+  ]
+}
