@@ -4,8 +4,6 @@ cosmological_mode.py -- Entity-Weighted Cosmological Integral
 
 Computes the global information budget by sampling entities at each scalar
 and weighting by their gap efficiency and oscillation parameters.
-
-Predicts energy fractions: Omega_matter, Omega_dark_matter, Omega_dark_energy.
 """
 
 import json
@@ -14,13 +12,11 @@ import math
 from scalar_engine import compute_scalar, compute_invariant, shannon_information, compute_scale
 from entity_classifier import classify_entity, LIFE_MIN, LIFE_MAX
 
-# Physical constants
 L_PLANCK = 1.616e-35
 L_HUBBLE = 4.4e26
 
 
 def generate_random_valid_simplex():
-    """Generate random valid BCAT simplex."""
     raw = [random.random() for _ in range(4)]
     total = sum(raw)
     values = [r / total for r in raw]
@@ -28,7 +24,6 @@ def generate_random_valid_simplex():
 
 
 def generate_random_delta():
-    """Generate random delta preserving simplex sum=0."""
     deltas = [random.uniform(-0.2, 0.2) for _ in range(4)]
     adjustment = sum(deltas) / 4
     deltas = [d - adjustment for d in deltas]
@@ -36,7 +31,6 @@ def generate_random_delta():
 
 
 def project_state(state, delta):
-    """Apply delta, clamp to non-negative, renormalize."""
     projected = {k: max(0.0, state[k] + delta[k]) for k in state}
     total = sum(projected.values())
     if total > 0:
@@ -56,20 +50,18 @@ def classify_transition(state_before, projected_state):
         return 'FAIL_CLOSED', 'Projected state invalid'
     inv_after = compute_invariant(projected_state)
     if inv_after <= 1e-12:
-        return 'ALLOW', f'I(x') = {inv_after:.6f} <= 0'
+        return 'ALLOW', 'I(x-prime) = ' + str(round(inv_after, 6)) + ' <= 0'
     else:
-        return 'DENY', f'I(x') = {inv_after:.6f} > 0'
+        return 'DENY', 'I(x-prime) = ' + str(round(inv_after, 6)) + ' > 0'
 
 
-def load_profile(profile_name='default', config_path='cosmological_profiles.yaml'):
-    """Load cosmological profile from YAML config."""
+def load_profile(profile_name='default', config_path='config/cosmological_profiles.yaml'):
     try:
         import yaml
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
         return config.get(profile_name, config.get('default', {}))
     except Exception:
-        # Return default profile if YAML not available
         return {
             'scalar_centers': [0.05, 0.15, 0.25, 0.35, 0.45, 0.50, 0.55, 0.65, 0.75, 0.85, 0.95],
             'entity_density': {
@@ -86,11 +78,6 @@ def load_profile(profile_name='default', config_path='cosmological_profiles.yaml
 
 
 def run_cosmological_integral(profile=None, samples_per_scalar=None, seed=None, alpha=1.0):
-    """
-    Compute entity-weighted energy budget.
-
-    Returns dict with energy_budget, life_fraction, scalar_distribution.
-    """
     if seed is not None:
         random.seed(seed)
 
@@ -112,7 +99,6 @@ def run_cosmological_integral(profile=None, samples_per_scalar=None, seed=None, 
         info_samples = []
 
         for _ in range(n_samples):
-            # Generate state near target scalar (rejection sampling)
             best_state = None
             best_score = float('inf')
             for _ in range(100):
@@ -162,7 +148,6 @@ def run_cosmological_integral(profile=None, samples_per_scalar=None, seed=None, 
                 'life_category': 'life' if is_life else 'non-life'
             })
 
-    # Compute energy fractions
     ordinary_matter = 0.0
     dark_matter = 0.0
     dark_energy = 0.0
@@ -209,7 +194,6 @@ def run_cosmological_integral(profile=None, samples_per_scalar=None, seed=None, 
 
 
 def test_convergence(profile=None, sample_sizes=None, seed=None):
-    """Test whether fractions stabilize with increasing samples."""
     if sample_sizes is None:
         sample_sizes = [100, 250, 500, 1000, 2500, 5000]
 
@@ -218,7 +202,7 @@ def test_convergence(profile=None, sample_sizes=None, seed=None):
     for n in sample_sizes:
         result = run_cosmological_integral(
             profile=profile,
-            samples_per_scalar=n // len(profile.get('scalar_centers', [0.5])),
+            samples_per_scalar=max(1, n // len(profile.get('scalar_centers', [0.5]))),
             seed=seed
         )
         convergence_results.append({
@@ -229,15 +213,16 @@ def test_convergence(profile=None, sample_sizes=None, seed=None):
             'life_fraction': result['life_fraction']
         })
 
-    # Compute variance across sample sizes
     om_values = [r['omega_matter'] for r in convergence_results]
     dm_values = [r['omega_dark_matter'] for r in convergence_results]
     de_values = [r['omega_dark_energy'] for r in convergence_results]
 
     def cv(values):
         mean = sum(values) / len(values)
+        if mean == 0:
+            return float('inf')
         variance = sum((v - mean)**2 for v in values) / len(values)
-        return math.sqrt(variance) / mean if mean > 0 else 0.0
+        return math.sqrt(variance) / mean
 
     return {
         'convergence_series': convergence_results,
@@ -256,14 +241,14 @@ if __name__ == '__main__':
 
     result = run_cosmological_integral(samples_per_scalar=50, seed=42)
 
-    print(f"Total information: {result['total_information']:.6e}")
-    print(f"Life information: {result['total_life_information']:.6e}")
-    print(f"Life fraction: {result['life_fraction']*100:.4f}%")
+    print("Total information: " + str(result['total_information']))
+    print("Life information: " + str(result['total_life_information']))
+    print("Life fraction: " + str(round(result['life_fraction']*100, 4)) + "%")
     print()
     print("Energy Budget:")
     for k, v in result['energy_budget'].items():
-        print(f"  {k}: {v*100:.2f}%")
+        print("  " + k + ": " + str(round(v*100, 2)) + "%")
     print()
     print("Life-bearing regimes:")
     for e in result['life_entities']:
-        print(f"  s={e['scalar_center']:.2f} | {e['life_category']} | info={e['weighted_information']:.6e}")
+        print("  s=" + str(e['scalar_center']) + " | " + e['life_category'] + " | info=" + str(e['weighted_information']))

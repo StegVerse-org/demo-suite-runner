@@ -4,14 +4,6 @@ entity_classifier.py -- Entity Classification by Scalar Oscillation
 
 Classifies entities as life or non-life based on their scalar time series.
 Life is defined as sustained oscillation within the viable band [0.3, 0.7].
-
-Entity types:
-  quantum event:     s~0, omega->inf     -- not life (too fast)
-  neural entity:     s~0.2, omega~1Hz    -- life (human-scale)
-  static entity:     s~0.5, omega~0      -- not life (no oscillation)
-  sloth:             s~0.5, omega~0.01Hz -- life (slow oscillation)
-  AI entity:         s~0.8, omega~10^9Hz -- life-like (fast, narrow)
-  black hole:        s=0.5, A=0          -- not life (frozen)
 """
 
 import math
@@ -28,9 +20,7 @@ MIN_VARIANCE = 0.0001
 def fit_oscillation(scalar_history):
     """
     Fit scalar history to: s(t) = 0.5 + A * sin(omega*t + phi)
-
     Uses simple period detection and amplitude estimation.
-    Returns (A, omega, phi) or (0, 0, 0) if no oscillation detected.
     """
     if len(scalar_history) < 3:
         return 0.0, 0.0, 0.0
@@ -47,16 +37,17 @@ def fit_oscillation(scalar_history):
         if (scalar_history[i-1] - mean_s) * (scalar_history[i] - mean_s) < 0:
             zero_crossings += 1
 
-    # Period ~ n / (zero_crossings / 2) samples per cycle
     if zero_crossings > 0:
         period = n / (zero_crossings / 2.0)
         omega = 2 * math.pi / period if period > 0 else 0.0
     else:
         omega = 0.0
 
-    # Phase: estimated from first point
+    # Phase
     if A > MIN_AMPLITUDE:
-        phi = math.asin((scalar_history[0] - 0.5) / A) if abs((scalar_history[0] - 0.5) / A) <= 1 else 0.0
+        ratio = (scalar_history[0] - 0.5) / A
+        ratio = max(-1.0, min(1.0, ratio))
+        phi = math.asin(ratio)
     else:
         phi = 0.0
 
@@ -64,16 +55,7 @@ def fit_oscillation(scalar_history):
 
 
 def classify_entity(scalar_history):
-    """
-    Classify entity from scalar time series.
-
-    Returns dict with:
-      - classification: 'life' or 'non-life'
-      - life_category: reality label if life, None otherwise
-      - amplitude, frequency, phase
-      - mean_scalar, variance
-      - gap_efficiency
-    """
+    """Classify entity from scalar time series."""
     if not scalar_history:
         return {
             'classification': 'non-life',
@@ -89,13 +71,11 @@ def classify_entity(scalar_history):
     A, omega, phi = fit_oscillation(scalar_history)
     mean_s = sum(scalar_history) / len(scalar_history)
 
-    # Variance
     if len(scalar_history) > 1:
         variance = sum((s - mean_s)**2 for s in scalar_history) / len(scalar_history)
     else:
         variance = 0.0
 
-    # Life classification
     is_life = (
         LIFE_MIN <= mean_s <= LIFE_MAX and
         A > MIN_AMPLITUDE and
@@ -124,7 +104,7 @@ def compute_life_fraction(entity_results):
 
 
 def entity_type_description(entity):
-    """Human-readable description of entity type from scalar signature."""
+    """Human-readable description of entity type."""
     s = entity.get('mean_scalar', 0.5)
     omega = entity.get('frequency', 0)
     A = entity.get('amplitude', 0)
@@ -142,32 +122,26 @@ def entity_type_description(entity):
     elif 0.45 < s < 0.55 and omega == 0:
         return "static entity -- no oscillation, not life"
     else:
-        return f"custom entity -- s={s:.3f}, omega={omega:.3f}, A={A:.3f}"
+        return "custom entity -- s=" + str(round(s, 3)) + ", omega=" + str(round(omega, 3)) + ", A=" + str(round(A, 3))
 
 
 if __name__ == '__main__':
     print("Entity Classifier Test")
     print("=" * 60)
 
-    # Test cases
     test_cases = [
-        # Human-like oscillation
         [0.45, 0.48, 0.52, 0.55, 0.53, 0.50, 0.47, 0.45],
-        # Static (no oscillation)
         [0.50, 0.50, 0.50, 0.50, 0.50],
-        # Quantum (too fast, low mean)
         [0.05, 0.08, 0.03, 0.06, 0.04],
-        # Sloth (slow oscillation)
         [0.48, 0.49, 0.50, 0.51, 0.52, 0.51, 0.50, 0.49],
     ]
 
     for i, history in enumerate(test_cases):
         result = classify_entity(history)
         desc = entity_type_description(result)
-        print(f"
-Test case {i+1}: {desc}")
-        print(f"  Classification: {result['classification']}")
-        print(f"  Mean scalar: {result['mean_scalar']}")
-        print(f"  Amplitude: {result['amplitude']}")
-        print(f"  Frequency: {result['frequency']}")
-        print(f"  Variance: {result['variance']}")
+        print("Test case " + str(i+1) + ": " + desc)
+        print("  Classification: " + result['classification'])
+        print("  Mean scalar: " + str(result['mean_scalar']))
+        print("  Amplitude: " + str(result['amplitude']))
+        print("  Frequency: " + str(result['frequency']))
+        print("  Variance: " + str(result['variance']))
