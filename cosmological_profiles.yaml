@@ -1,0 +1,121 @@
+# Cosmological Profiles for GCAT/BCAT Demo Suite v2.0
+# 
+# Each profile defines entity density and time fraction distributions
+# across scalar values. These are used by cosmological_mode.py to
+# compute the entity-weighted cosmological integral.
+
+# Standard model: current universe with matter-dominated epoch
+default:
+  description: "Standard cosmological model - current epoch"
+  scalar_centers: [0.05, 0.15, 0.25, 0.35, 0.45, 0.50, 0.55, 0.65, 0.75, 0.85, 0.95]
+  entity_density:
+    0.05: 80    # Quantum particles (10^80)
+    0.15: 60    # Quantum chemistry
+    0.25: 40    # Near-quantum
+    0.35: 25    # Classical-small
+    0.45: 15    # Classical-medium
+    0.50: 12    # Human-scale (critical) - longest epoch
+    0.55: 15    # Classical-large
+    0.65: 25    # Near-astrophysical
+    0.75: 40    # Astrophysical-small
+    0.85: 60    # Astrophysical-medium
+    0.95: 80    # Cosmological (10^80)
+  time_fraction:
+    0.05: 0.01  # Brief quantum era
+    0.15: 0.02
+    0.25: 0.03
+    0.35: 0.05
+    0.45: 0.10
+    0.50: 0.20  # Longest epoch: matter-dominated
+    0.55: 0.15
+    0.65: 0.12
+    0.75: 0.10
+    0.85: 0.12
+    0.95: 0.10
+  life_band: [0.3, 0.7]
+  samples_per_scalar: 50
+
+# Early universe: primordial, quantum-dominated
+early_universe:
+  description: "Primordial universe - quantum-dominated epoch"
+  scalar_centers: [0.05, 0.15, 0.25, 0.35, 0.45, 0.50, 0.55, 0.65, 0.75, 0.85, 0.95]
+  entity_density:
+    0.05: 90    # Dominant quantum particles
+    0.15: 70
+    0.25: 50
+    0.35: 20
+    0.45: 10
+    0.50: 5     # Minimal classical structure
+    0.55: 5
+    0.65: 10
+    0.75: 20
+    0.85: 40
+    0.95: 60
+  time_fraction:
+    0.05: 0.20  # Long quantum epoch
+    0.15: 0.15
+    0.25: 0.12
+    0.35: 0.10
+    0.45: 0.08
+    0.50: 0.05  # Brief matter-dominated
+    0.55: 0.05
+    0.65: 0.08
+    0.75: 0.05
+    0.85: 0.05
+    0.95: 0.07
+  life_band: [0.3, 0.7]
+  samples_per_scalar: 50
+
+# Late universe: dark energy dominated
+late_universe:
+  description: "Late universe - dark energy dominated epoch"
+  scalar_centers: [0.05, 0.15, 0.25, 0.35, 0.45, 0.50, 0.55, 0.65, 0.75, 0.85, 0.95]
+  entity_density:
+    0.05: 60
+    0.15: 40
+    0.25: 20
+    0.35: 10
+    0.45: 5
+    0.50: 5     # Minimal classical structure
+    0.55: 10
+    0.65: 20
+    0.75: 40
+    0.85: 60
+    0.95: 90    # Dominant dark energy
+  time_fraction:
+    0.05: 0.05
+    0.15: 0.05
+    0.25: 0.05
+    0.35: 0.05
+    0.45: 0.05
+    0.50: 0.05  # Brief matter-dominated
+    0.55: 0.08
+    0.65: 0.10
+    0.75: 0.12
+    0.85: 0.15
+    0.95: 0.25  # Long dark energy epoch
+  life_band: [0.3, 0.7]
+  samples_per_scalar: 50
+
+# Life-only profile: test life requirement
+life_only:
+  description: "Life-only profile for testing life requirement"
+  scalar_centers: [0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65]
+  entity_density:
+    0.35: 20
+    0.40: 25
+    0.45: 30
+    0.50: 35    # Peak at human-scale
+    0.55: 30
+    0.60: 25
+    0.65: 20
+  time_fraction:
+    0.35: 0.10
+    0.40: 0.12
+    0.45: 0.15
+    0.50: 0.20  # Peak time fraction
+    0.55: 0.15
+    0.60: 0.12
+    0.65: 0.10
+  life_band: [0.3, 0.7]
+  samples_per_scalar: 100
