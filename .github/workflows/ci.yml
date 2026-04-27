@@ -1,140 +1,195 @@
-name: StegVerse Formalism Sandbox CI
+name: Demo Suite Runner CI
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  schedule:
-    - cron: "0 0 * * 0"  # Weekly Sunday midnight
   workflow_dispatch:
 
 env:
   PYTHON_VERSION: "3.11"
+  STEGVERSE_SEED: "ci-deterministic-seed-2026"
 
 jobs:
-  sandbox-tests:
+  cache-clear:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear All Caches
+        run: |
+          rm -rf .pytest_cache __pycache__ */__pycache__ .mypy_cache
+          echo "Cache cleared for run: ${{ github.run_id }}"
+
+  receipt-id-tests:
+    needs: cache-clear
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
+      - name: Test Receipt ID Determinism
         run: |
-          pip install numpy
-          pip install pytest
-
-      - name: Run GCAT Invariant Tests
-        run: |
+          cd scripts
           python -c "
-          import sys
-          sys.path.insert(0, '.')
-          from invariants.gcat_invariants import GCATInvariants
-          gcat = GCATInvariants()
-
-          r1 = gcat.check_simplex_non_negativity([1.0, 2.0, 3.0])
-          assert r1.passed, f'I1 should pass: {r1.reasoning}'
-          print(f'PASS: I1 — {r1.reasoning}')
-
-          r1_fail = gcat.check_simplex_non_negativity([1.0, -1.0, 3.0])
-          assert not r1_fail.passed, f'I1 should fail: {r1_fail.reasoning}'
-          print(f'PASS: I1 fail — {r1_fail.reasoning}')
-
-          r2 = gcat.check_triangle_inequality([(3.0, 4.0, 5.0)])
-          assert r2.passed, f'I2 should pass: {r2.reasoning}'
-          print(f'PASS: I2 — {r2.reasoning}')
-
-          r2_fail = gcat.check_triangle_inequality([(1.0, 1.0, 3.0)])
-          assert not r2_fail.passed, f'I2 should fail: {r2_fail.reasoning}'
-          print(f'PASS: I2 fail — {r2_fail.reasoning}')
-
-          r4 = gcat.check_admissibility_scalar_bounds(0.5)
-          assert r4.passed, f'I4 should pass: {r4.reasoning}'
-          print(f'PASS: I4 — {r4.reasoning}')
-
-          r4_fail = gcat.check_admissibility_scalar_bounds(1.5)
-          assert not r4_fail.passed, f'I4 should fail: {r4_fail.reasoning}'
-          print(f'PASS: I4 fail — {r4_fail.reasoning}')
-
-          print('\n=== ALL GCAT TESTS PASSED ===')
+          from receipt_id import init_session, get_receipt, reset_session, ReceiptGenerator
+          reset_session()
+          init_session('test-seed-001', 'deterministic')
+          r1 = get_receipt({'action': 'test'}, 'GCAT')
+          assert r1.startswith('REC-GCAT-'), f'Bad format: {r1}'
+          r2 = get_receipt({'action': 'test'}, 'GCAT')
+          assert r1 != r2, f'Collision: {r1} == {r2}'
+          r3 = get_receipt({'action': 'other'}, 'BCAT')
+          assert r3.startswith('REC-BCAT-')
+          gen = ReceiptGenerator('val-seed')
+          assert gen.validate_format('REC-GCAT-123-abc')
+          assert not gen.validate_format('BAD-FORMAT')
+          print('=== RECEIPT ID TESTS PASSED ===')
           "
 
-      - name: Run BCAT Boundary Tests
+  governed-action-tests:
+    needs: cache-clear
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Test Gate Logic
         run: |
+          cd scripts
           python -c "
-          import sys
-          sys.path.insert(0, '.')
-          from invariants.bcat_invariants import BCATInvariants
-          bcat = BCATInvariants()
-
-          b1_warn = bcat.check_boundary_proximity(0.05)
-          assert b1_warn.metadata['status'] == 'WARNING', f'B1 should warn: {b1_warn.reasoning}'
-          print(f'PASS: B1 warning — {b1_warn.reasoning}')
-
-          b1_safe = bcat.check_boundary_proximity(0.5)
-          assert b1_safe.metadata['status'] == 'SAFE', f'B1 should be safe: {b1_safe.reasoning}'
-          print(f'PASS: B1 safe — {b1_safe.reasoning}')
-
-          b3 = bcat.check_edge_collapse([1e-12, 1.0, 1.0])
-          assert b3.metadata['status'] == 'COLLAPSED', f'B3 should detect collapse: {b3.reasoning}'
-          print(f'PASS: B3 collapse — {b3.reasoning}')
-
-          print('\n=== ALL BCAT TESTS PASSED ===')
+          from receipt_id import reset_session, init_session
+          from governed_action import create_gate, GateResult
+          reset_session()
+          init_session('gate-test', 'deterministic')
+          gate = create_gate('GCAT')
+          result = gate.evaluate({'action': 'query', 'payload': {'data': 'test'}})
+          assert result['receipt_id'].startswith('REC-')
+          assert result['result'] == GateResult.ALLOW
+          assert 0 <= result['confidence'] <= 1
+          assert len(result['reasoning']) > 0
+          result2 = gate.evaluate({'invalid': 'input'})
+          assert result2['result'] == GateResult.FAIL_CLOSED
+          assert result2['receipt_id'].startswith('REC-')
+          assert len(gate.history) >= 2
+          print('=== GOVERNED ACTION TESTS PASSED ===')
           "
 
-      - name: Run Ephemeral Sandbox
+  governed-mutation-tests:
+    needs: cache-clear
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Test Mutation Logic
         run: |
+          cd scripts
           python -c "
-          import sys
-          sys.path.insert(0, '.')
-          from sandbox.ephemeral_sandbox import EphemeralSandbox
-
-          sandbox = EphemeralSandbox(seed='ci-test', experiment_name='ci')
-
-          result = sandbox.run_experiment({
-              'test_simplex': True,
-              'dimension': 3,
-              'test_admissibility': True,
-              'boundary_proximity': 'none'
-          })
-
-          assert result.aggregate['total_invariants'] > 0, 'No invariants run'
-          print(f'PASS: Sandbox — {result.experiment_id}')
-          print(f'      Pass rate: {result.aggregate["pass_rate"]:.1%}')
-
-          # Verify ephemeral cleanup
-          import tempfile, os
-          temp_dirs = [d for d in os.listdir(tempfile.gettempdir()) if d.startswith('stegverse_sandbox_')]
-          assert len(temp_dirs) == 0, f'Ephemeral leak: {temp_dirs}'
-          print('PASS: Ephemeral cleanup verified')
-
-          print('\n=== SANDBOX TESTS PASSED ===')
+          from receipt_id import reset_session, init_session
+          from governed_action import create_gate
+          from governed_mutation import GovernedMutation
+          reset_session()
+          init_session('mutation-test', 'deterministic')
+          gate = create_gate('GCAT')
+          mutator = GovernedMutation(gate, {'key1': 'initial_value'})
+          result = mutator.mutate('update', 'key1', 'new_value')
+          assert result['receipt_id'].startswith('REC-')
+          if result['result'].value == 'ALLOW':
+              assert mutator.get_state_snapshot()['key1'] == 'new_value'
+              success = mutator.rollback(result['receipt_id'])
+              assert success
+              assert mutator.get_state_snapshot()['key1'] == 'initial_value'
+          query_result = mutator.query('key1')
+          assert query_result['receipt_id'].startswith('REC-')
+          assert len(mutator.mutation_log) > 0
+          print('=== GOVERNED MUTATION TESTS PASSED ===')
           "
 
-      - name: Run Experiment Suite & Export
+  llm-adapter-tests:
+    needs: cache-clear
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Test Adapter Structure
         run: |
+          cd scripts
           python -c "
-          import sys
-          sys.path.insert(0, '.')
-          from experiments.experiment_suite import ExperimentSuites
-
-          suites = ExperimentSuites(base_seed='ci-quick')
-          results = suites.suite_edge_collapse_convergence(num_steps=5)
-
-          print(f'\nSuite completed: {len(results)} experiments')
-
-          # Export for artifact upload
-          suites.export_results('formalism_exploration_results.json')
-          print('Results exported for upload')
+          from llm_adapter import LLMConfig, ProviderType, LLMAdapter, create_adapter, LLMResponse
+          config = LLMConfig(provider=ProviderType.LOCAL, model='llama2')
+          assert config.provider == ProviderType.LOCAL
+          assert config.temperature == 0.0
+          assert ProviderType.OPENAI.value == 'openai'
+          assert ProviderType.KIMI.value == 'kimi'
+          adapter = create_adapter('local', 'test-model')
+          assert adapter.config.provider == ProviderType.LOCAL
+          assert adapter.budget_used == 0.0
+          resp = LLMResponse('test', 'REC-TEST', ProviderType.LOCAL, 'm', {}, 0.5, 'reason')
+          d = resp.to_dict()
+          assert d['content'] == 'test'
+          assert d['confidence'] == 0.5
+          print('=== LLM ADAPTER TESTS PASSED ===')
           "
 
-      - name: Upload Results
+  demo-runner-tests:
+    needs: cache-clear
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Run Full Demo Suite
+        run: |
+          cd scripts
+          python demo_suite_runner.py --seed "${{ env.STEGVERSE_SEED }}" --tests 5 --mode deterministic --output ../demo_result.json
+      - name: Validate Output
+        run: |
+          python -c "
+          import json
+          with open('demo_result.json') as f:
+              data = json.load(f)
+          assert 'seed' in data
+          assert 'total_tests' in data
+          total = data['total_tests']
+          allow = data['allow_count']
+          deny = data['deny_count']
+          fail = data['fail_closed_count']
+          assert total == allow + deny + fail
+          assert data['statistics']['determinism_check']['collision_free']
+          pass_nums = [r['pass_num'] for r in data['results']]
+          assert 1 in pass_nums and 2 in pass_nums and 3 in pass_nums
+          print(f'Total={total}, ALLOW={allow}, DENY={deny}, FAIL={fail}')
+          print('=== DEMO SUITE OUTPUT VALIDATED ===')
+          "
+      - name: Upload Demo Results
         uses: actions/upload-artifact@v4
         with:
-          name: sandbox-results
-          path: formalism_exploration_results.json
-        if: always()
+          name: demo-results
+          path: demo_result.json
+
+  collect:
+    needs: [receipt-id-tests, governed-action-tests, governed-mutation-tests, llm-adapter-tests, demo-runner-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          merge-multiple: true
+      - name: Summary
+        run: |
+          echo "=== StegVerse Demo Suite CI Summary ==="
+          echo "Run ID: ${{ github.run_id }}"
+          ls -la all-artifacts/
