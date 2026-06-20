@@ -64,9 +64,7 @@ Edit `config/cosmological_profiles.yaml` to adjust entity density and time fract
 
 ## Workflow
 
-The GitHub Actions workflow is in `.github/workflows/demo-suite-runner-v2.yml`.
-
-Note: the workflow path is displayed here without the leading dot in prose as `github/workflows/demo-suite-runner-v2.yml`; the actual repository path must include the leading dot for GitHub Actions to run.
+The GitHub Actions workflow is in the repository workflow directory as `github/workflows/demo-suite-runner-v2.yml` in this prose reference. The actual repository path must include the leading dot for GitHub Actions to run.
 
 ## Origin
 
