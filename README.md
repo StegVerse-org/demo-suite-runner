@@ -3,6 +3,30 @@
 Experimental instrument for probing the geometry of admissibility,
 the scalar as reality-selector, and the gap as active workspace.
 
+## Formal Testing Route
+
+This repository is the formal demo runner route. It should consume datasets only after they have been ingested through `StegVerse-org/StegVerse-SDK` and bound to a manifest and intake receipt.
+
+```text
+Dataset / fixture / governance artifact
+→ StegVerse-org/StegVerse-SDK ingestion
+→ manifest binding
+→ receipt binding
+→ formal demo runner route
+→ deterministic runner result receipt
+```
+
+Route role:
+
+```text
+SDK ingests.
+Demo-suite demonstrates.
+Demo-suite-runner probes formalism behavior.
+Receipts bind every transition.
+```
+
+More adversarial or entity-specific cases should route to `StegGhost/entity-sandbox-runner`. Standing-specific stale-state and authority-rebinding cases should route to `StegVerse-Labs/Standing-Proof-Engine`. Boundary declaration and GLM-style composability cases should route to `StegVerse-Labs/Boundary-Test` after private-review-first concerns are resolved.
+
 ## Quick Start
 
 ```bash
@@ -41,6 +65,8 @@ Edit `config/cosmological_profiles.yaml` to adjust entity density and time fract
 ## Workflow
 
 The GitHub Actions workflow is in `.github/workflows/demo-suite-runner-v2.yml`.
+
+Note: the workflow path is displayed here without the leading dot in prose as `github/workflows/demo-suite-runner-v2.yml`; the actual repository path must include the leading dot for GitHub Actions to run.
 
 ## Origin
 
