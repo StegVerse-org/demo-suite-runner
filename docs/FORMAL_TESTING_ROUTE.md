@@ -29,3 +29,21 @@ It should not replace:
 ## Receipt Rule
 
 Every runner result must preserve the SDK intake manifest reference and SDK intake receipt reference.
+
+Route result receipts should conform to the SDK result receipt shape:
+
+```text
+StegVerse-org/StegVerse-SDK/schemas/formal-testing-route-result.schema.json
+```
+
+Minimum result receipt fields:
+
+```text
+schema_version
+route_id
+repository
+sdk_intake.dataset_manifest_hash
+sdk_intake.intake_receipt_id
+result
+route_receipt_id
+```
