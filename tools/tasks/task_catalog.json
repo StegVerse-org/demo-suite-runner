@@ -10,7 +10,7 @@
  "path_filters": "Dropped: every group runs on every pull_request and push to main (a superset of the original path-filtered runs). workflow_dispatch/schedule triggers are not carried (no manual dispatch, no cron).",
  "repairs": [
   "ci.yml job 'collect' (needs: all test jobs, if: always()) only downloaded the other jobs' artifacts and listed them in the log; it carries no check. It is not a group: each group's own artifact upload (demo-results) is retained by the dispatcher.",
-  "demo-suite-runner-v2.demo-suite 'Generate unified report': the run block's python -c is double-quoted, so bash stripped the double quotes in report.get(\"validation\", {}).get(\"overall\", \"N/A\") and the step raised NameError: name 'validation' is not defined on every run (the workflow failed on main). The three keys are single-quoted; nothing else in the step changes.",
+  "demo-suite-runner-v2.demo-suite 'Generate unified report': the run block's python -c is double-quoted, so bash stripped the double quotes in report.get(\"validation\", {}).get(\"overall\", \"N/A\") and the step raised NameError: name 'validation' is not defined on every run (the workflow failed on main). The three keys are backslash-escaped so Python receives them double-quoted inside the single-quoted f-string, which is valid on Python 3.11 and later; nothing else in the step changes.",
   "demo-suite-runner-v2.demo-suite steps 6-10 redirect into outputs/, which did not exist in the repository, so 'Run scalar computation' failed with 'No such file or directory'. outputs/.gitkeep is added; the step bodies are unchanged.",
   "scripts/llm_adapter.py: the provider client is created on first use instead of in __init__, so ci.llm-adapter-tests (which constructs a local adapter and checks its structure, with no provider SDK installed by its job) no longer fails with 'OpenAI package required for local'; a missing SDK still raises the same RuntimeError at the first provider call. No dependency is added.",
   "ci.yml jobs' 'needs: cache-clear' ordering is not carried: every group runs on a fresh runner, which the cache-clear job's rm on an empty workspace never affected."
@@ -345,9 +345,9 @@
      "if": "github.event.inputs.run_validation != 'false'"
     },
     {
-     "name": "Generate unified report (repaired: single-quoted keys inside the double-quoted python -c)",
-     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/09-generate-unified-report-repaired-single-quoted-keys-inside-t.sh",
-     "run_sha256": "b958b52d256baa424586da274ca517b04bd0f5be2e59a5c220d1da6f453ca8f2"
+     "name": "Generate unified report (repaired: backslash-escaped keys inside the double-quoted python -c)",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/09-generate-unified-report-repaired-backslash-escaped-keys-insi.sh",
+     "run_sha256": "4ddb959898bd824e5d731b4c33eea52bdd101540d39e8828c9b9eda01c673e95"
     }
    ],
    "artifacts": [

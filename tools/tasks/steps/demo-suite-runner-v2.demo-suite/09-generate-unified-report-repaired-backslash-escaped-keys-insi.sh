@@ -25,7 +25,7 @@ except: pass
 
 with open('outputs/sweep_report_v2.md', 'w') as f:
   f.write('# GCAT/BCAT Demo Suite Report v2.0\n\n')
-  f.write(f'**Validation:** {report.get('validation', {}).get('overall', 'N/A')}\n\n')
+  f.write(f'**Validation:** {report.get(\"validation\", {}).get(\"overall\", \"N/A\")}\n\n')
   f.write('## Energy Budget\n\n')
   if 'cosmology' in report:
     eb = report['cosmology'].get('energy_budget', {})
