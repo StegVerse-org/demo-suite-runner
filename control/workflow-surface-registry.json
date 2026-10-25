@@ -1,0 +1,113 @@
+{
+ "schema": "stegverse.workflow-surface-registry/v1",
+ "goal_id": "G17-WORKFLOW-SURFACE-MINIMIZATION",
+ "repository": "StegVerse-org/demo-suite-runner",
+ "policy_issue": "StegVerse-Labs/.github#167, #168; StegVerse-org/.github#166",
+ "preferred_repository_workflow_count_max": 2,
+ "exception_repository_workflow_count_max": 3,
+ "credential_authority": "the SKAP Vault inside KV is the only PII and credential store for every user, including the StegVerse ecosystem's own; no secret or token is referenced, introduced or moved by this fold",
+ "invariants": [
+  "Every workflow file is registered in surfaces[]; an unregistered or changed one fails closed (tests/test_workflow_surface_registry.py).",
+  "A new check is a group in tools/tasks/task_catalog.json, never a new workflow file.",
+  "The stable dispatcher carries no workflow_dispatch, schedule, repository_dispatch, issues or workflow_run trigger; a kept surface is pinned by sha256 and unchanged by the fold."
+ ],
+ "unregistered_workflow_outcome": {
+  "disposition": "FAIL_CLOSED",
+  "failure_code": "UNREGISTERED_WORKFLOW_SURFACE",
+  "failed_predicate": "EVERY_WORKFLOW_FILE_IS_REGISTERED",
+  "required_evidence_or_repair": "register the file in control/workflow-surface-registry.json surfaces[] or fold it into tools/tasks/task_catalog.json",
+  "retry_entrypoint": "tests/test_workflow_surface_registry.py",
+  "owning_existing_goal": "G17-WORKFLOW-SURFACE-MINIMIZATION (StegVerse-Labs/.github#167/#168); StegVerse-org/.github#166",
+  "next_attempt": "the next pull request touching .github/workflows/"
+ },
+ "surfaces": [
+  {
+   "path": ".github/workflows/validation-dispatcher.yml",
+   "classification": "KEEP_STABLE_DISPATCHER",
+   "triggers": [
+    "pull_request",
+    "push"
+   ],
+   "permissions": {
+    "contents": "read"
+   }
+  }
+ ],
+ "folded": [
+  {
+   "workflow": ".github/workflows/architecture-guard.yml",
+   "name": null,
+   "triggers_before": [],
+   "classification": "ELIMINATE",
+   "status": "DONE",
+   "reason": "Empty file (0 bytes): GitHub registers it as an invalid workflow file and records a failed run on every push (e.g. 2026-09-01, 2026-06-21); it declares no check. Kept verbatim as a record.",
+   "verbatim_record": "tools/tasks/folded/architecture-guard.yml",
+   "verbatim_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "workflow": ".github/workflows/run-demo.yml",
+   "name": "Run Demo Suite",
+   "triggers_before": [
+    "workflow_dispatch"
+   ],
+   "classification": "ELIMINATE",
+   "status": "DONE",
+   "reason": "workflow_dispatch-only, input-driven manual run (mode/reset/seed/samples/reconstruct choices); it never ran on a pull_request or push and has no meaning without its dispatch inputs. This lane carries no manual dispatch. Kept verbatim as a record; runner/main.py is unchanged and still runnable locally.",
+   "verbatim_record": "tools/tasks/folded/run-demo.yml",
+   "verbatim_sha256": "cf354aafc2fc865fad3217bb80a861acc2e034e484ceab26773ddf6b43c77384"
+  },
+  {
+   "workflow": ".github/workflows/ci.yml",
+   "name": "Demo Suite Runner CI",
+   "triggers_before": [
+    "push",
+    "pull_request",
+    "workflow_dispatch"
+   ],
+   "classification": "CONSOLIDATE_INTO_STABLE_DISPATCHER",
+   "status": "DONE",
+   "catalog_groups": [
+    "ci.cache-clear",
+    "ci.receipt-id-tests",
+    "ci.governed-action-tests",
+    "ci.governed-mutation-tests",
+    "ci.llm-adapter-tests",
+    "ci.demo-runner-tests"
+   ],
+   "verbatim_record": "tools/tasks/folded/ci.yml",
+   "verbatim_sha256": "696588235c6446b904794942bb7701d3979b9d972ec835a8022186bee2d141bc"
+  },
+  {
+   "workflow": ".github/workflows/demo-suite-runner-v2.yml",
+   "name": "Demo Suite Runner v2.0",
+   "triggers_before": [
+    "push",
+    "pull_request",
+    "workflow_dispatch"
+   ],
+   "classification": "CONSOLIDATE_INTO_STABLE_DISPATCHER",
+   "status": "DONE",
+   "catalog_groups": [
+    "demo-suite-runner-v2.demo-suite"
+   ],
+   "verbatim_record": "tools/tasks/folded/demo-suite-runner-v2.yml",
+   "verbatim_sha256": "216c00ece51cec2650f7b144b66270401b609c22eb655e209db0d13ec79cc6b9"
+  },
+  {
+   "workflow": ".github/workflows/testing-data-loop-contract-validate.yml",
+   "name": "Testing Data Loop Contract Validation",
+   "triggers_before": [
+    "push",
+    "pull_request",
+    "workflow_dispatch"
+   ],
+   "classification": "CONSOLIDATE_INTO_STABLE_DISPATCHER",
+   "status": "DONE",
+   "catalog_groups": [
+    "testing-data-loop-contract-validate.validate-contract"
+   ],
+   "verbatim_record": "tools/tasks/folded/testing-data-loop-contract-validate.yml",
+   "verbatim_sha256": "34c71273395a80719296e8802d6673468b8670d7a7a5d0c94b88879ae1622a08"
+  }
+ ]
+}

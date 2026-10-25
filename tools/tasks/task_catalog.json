@@ -1,0 +1,428 @@
+{
+ "schema": "stegverse.task-catalog/v1",
+ "repository": "StegVerse-org/demo-suite-runner",
+ "goal_id": "G17-WORKFLOW-SURFACE-MINIMIZATION",
+ "authority": "Rigel 2026-10-24 retroactive G17 enforcement (StegVerse-org/.github#166); pattern StegVerse-Labs/StegDB#60 (eab2e773)",
+ "dispatcher": ".github/workflows/validation-dispatcher.yml",
+ "runner": "tools/tasks/run_catalog.py",
+ "runner_source": "StegVerse-Labs/StegDB tools/tasks/run_catalog.py @ eab2e773271f3e63466a710f1b4555f677882848 (sha256 f741f30557888fd8e4852a52adfc65736a08898d49ade7519f6bcc2672921e9b), copied unmodified",
+ "rule": "Every check a folded workflow job ran is one group here; its step bodies are the original run blocks byte for byte, pinned by sha256, except the repairs listed. A new check is a new group (or a step in one), never a new workflow file.",
+ "path_filters": "Dropped: every group runs on every pull_request and push to main (a superset of the original path-filtered runs). workflow_dispatch/schedule triggers are not carried (no manual dispatch, no cron).",
+ "repairs": [
+  "ci.yml job 'collect' (needs: all test jobs, if: always()) only downloaded the other jobs' artifacts and listed them in the log; it carries no check. It is not a group: each group's own artifact upload (demo-results) is retained by the dispatcher.",
+  "demo-suite-runner-v2.demo-suite 'Generate unified report': the run block's python -c is double-quoted, so bash stripped the double quotes in report.get(\"validation\", {}).get(\"overall\", \"N/A\") and the step raised NameError: name 'validation' is not defined on every run (the workflow failed on main). The three keys are backslash-escaped so Python receives them double-quoted inside the single-quoted f-string, which is valid on Python 3.11 and later; nothing else in the step changes.",
+  "demo-suite-runner-v2.demo-suite steps 6-10 redirect into outputs/, which did not exist in the repository, so 'Run scalar computation' failed with 'No such file or directory'. outputs/.gitkeep is added; the step bodies are unchanged.",
+  "scripts/llm_adapter.py: the provider client is created on first use instead of in __init__, so ci.llm-adapter-tests (which constructs a local adapter and checks its structure, with no provider SDK installed by its job) no longer fails with 'OpenAI package required for local'; a missing SDK still raises the same RuntimeError at the first provider call. No dependency is added.",
+  "ci.yml jobs' 'needs: cache-clear' ordering is not carried: every group runs on a fresh runner, which the cache-clear job's rm on an empty workspace never affected."
+ ],
+ "folded_from_commit": "d86a5a45b0e23a4ab0b9f9027fddf2a99f076376",
+ "groups": [
+  {
+   "id": "ci.cache-clear",
+   "source": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_name": "Demo Suite Runner CI",
+    "job": "cache-clear",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {
+    "PYTHON_VERSION": "3.11",
+    "STEGVERSE_SEED": "ci-deterministic-seed-2026"
+   },
+   "steps": [
+    {
+     "name": "Clear All Caches",
+     "run_file": "tools/tasks/steps/ci.cache-clear/01-clear-all-caches.sh",
+     "run_sha256": "9c42f3eb58658ebe949b05bcea957f4b41b08a0c5d06449370293ef0ce873885"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30
+   }
+  },
+  {
+   "id": "ci.receipt-id-tests",
+   "source": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_name": "Demo Suite Runner CI",
+    "job": "receipt-id-tests",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null,
+    "job_needs_if_before": {
+     "needs": "cache-clear",
+     "if": null
+    }
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {
+    "PYTHON_VERSION": "3.11",
+    "STEGVERSE_SEED": "ci-deterministic-seed-2026"
+   },
+   "steps": [
+    {
+     "name": "Test Receipt ID Determinism",
+     "run_file": "tools/tasks/steps/ci.receipt-id-tests/01-test-receipt-id-determinism.sh",
+     "run_sha256": "1cc085d9eae5705a64764da0ab3044f11f596f41e32e2c2e350d3aa76f76fec3"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30,
+    "python_version": "3.11"
+   }
+  },
+  {
+   "id": "ci.governed-action-tests",
+   "source": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_name": "Demo Suite Runner CI",
+    "job": "governed-action-tests",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null,
+    "job_needs_if_before": {
+     "needs": "cache-clear",
+     "if": null
+    }
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {
+    "PYTHON_VERSION": "3.11",
+    "STEGVERSE_SEED": "ci-deterministic-seed-2026"
+   },
+   "steps": [
+    {
+     "name": "Test Gate Logic",
+     "run_file": "tools/tasks/steps/ci.governed-action-tests/01-test-gate-logic.sh",
+     "run_sha256": "71522952d4d525cd689165b1f4c7234bec9f59e1790451900013969c2409b224"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30,
+    "python_version": "3.11"
+   }
+  },
+  {
+   "id": "ci.governed-mutation-tests",
+   "source": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_name": "Demo Suite Runner CI",
+    "job": "governed-mutation-tests",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null,
+    "job_needs_if_before": {
+     "needs": "cache-clear",
+     "if": null
+    }
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {
+    "PYTHON_VERSION": "3.11",
+    "STEGVERSE_SEED": "ci-deterministic-seed-2026"
+   },
+   "steps": [
+    {
+     "name": "Test Mutation Logic",
+     "run_file": "tools/tasks/steps/ci.governed-mutation-tests/01-test-mutation-logic.sh",
+     "run_sha256": "32d9f26c77932cba0fd20cfc1c31471ea84a7f1838684adca87ee060672e2a8b"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30,
+    "python_version": "3.11"
+   }
+  },
+  {
+   "id": "ci.llm-adapter-tests",
+   "source": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_name": "Demo Suite Runner CI",
+    "job": "llm-adapter-tests",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null,
+    "job_needs_if_before": {
+     "needs": "cache-clear",
+     "if": null
+    }
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {
+    "PYTHON_VERSION": "3.11",
+    "STEGVERSE_SEED": "ci-deterministic-seed-2026"
+   },
+   "steps": [
+    {
+     "name": "Test Adapter Structure",
+     "run_file": "tools/tasks/steps/ci.llm-adapter-tests/01-test-adapter-structure.sh",
+     "run_sha256": "32af3e33e4704224932625279d748a0380b788c80bbf0d5670bd98731e7b29b6"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30,
+    "python_version": "3.11"
+   }
+  },
+  {
+   "id": "ci.demo-runner-tests",
+   "source": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_name": "Demo Suite Runner CI",
+    "job": "demo-runner-tests",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null,
+    "job_needs_if_before": {
+     "needs": "cache-clear",
+     "if": null
+    }
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {
+    "PYTHON_VERSION": "3.11",
+    "STEGVERSE_SEED": "ci-deterministic-seed-2026"
+   },
+   "steps": [
+    {
+     "name": "Run Full Demo Suite",
+     "run_file": "tools/tasks/steps/ci.demo-runner-tests/01-run-full-demo-suite.sh",
+     "run_sha256": "460aa7873e618dc08310a86de7fc474aa8068b8c410996abfc5b2cb9e720418b"
+    },
+    {
+     "name": "Validate Output",
+     "run_file": "tools/tasks/steps/ci.demo-runner-tests/02-validate-output.sh",
+     "run_sha256": "76a0b3bf15c95cb656a96c6e696fa8a49e3a5c65a6aa13c250f1487a4a25de85"
+    }
+   ],
+   "artifacts": [
+    {
+     "name": "demo-results",
+     "path": "demo_result.json",
+     "if_no_files_found": "warn",
+     "if": "success()"
+    }
+   ],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30,
+    "python_version": "3.11",
+    "artifact_name": "demo-results",
+    "artifact_if_no_files_found": "warn"
+   }
+  },
+  {
+   "id": "demo-suite-runner-v2.demo-suite",
+   "source": {
+    "workflow": ".github/workflows/demo-suite-runner-v2.yml",
+    "workflow_name": "Demo Suite Runner v2.0",
+    "job": "demo-suite",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {},
+   "steps": [
+    {
+     "name": "Clear cache",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/01-clear-cache.sh",
+     "run_sha256": "f3e2cbe558da9d9c6959f6823d81cf193428e3b47e908441a85e77c0dc49ac07"
+    },
+    {
+     "name": "Install dependencies",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/02-install-dependencies.sh",
+     "run_sha256": "9cfcc0bee581c697acc510dc97e1a0dfa0cfc5a33fca97d8181a1394a68980f8"
+    },
+    {
+     "name": "Run base governance tests",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/03-run-base-governance-tests.sh",
+     "run_sha256": "02079333f09fb009911a68fbb174dac431adc9d0afe9c9e42344afe7ebf1b7f6"
+    },
+    {
+     "name": "Run scalar computation",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/04-run-scalar-computation.sh",
+     "run_sha256": "2c376bb2830828eb2d05b2f396161cebbef37fe83251f58f8161553baf7f706c",
+     "if": "github.event.inputs.run_scalar != 'false'"
+    },
+    {
+     "name": "Run gap instrumentation",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/05-run-gap-instrumentation.sh",
+     "run_sha256": "bfb344889edf4e939de99b894e1ea241bf755a4452e8ac9030d506f49737adcc",
+     "if": "github.event.inputs.run_gap != 'false'"
+    },
+    {
+     "name": "Run entity classification",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/06-run-entity-classification.sh",
+     "run_sha256": "d37418a690d9fbf5d72c9645ad0e6f6d8ae197a83772b413d981bf653fc30dfb",
+     "if": "github.event.inputs.run_entity != 'false'"
+    },
+    {
+     "name": "Run cosmological mode",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/07-run-cosmological-mode.sh",
+     "run_sha256": "4d3677dd491480a17e5661f380c556864922b508bc85969213239722d4b509e7",
+     "if": "github.event.inputs.run_cosmology != 'false'"
+    },
+    {
+     "name": "Run convergence validation",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/08-run-convergence-validation.sh",
+     "run_sha256": "c8f602ab36fdc0605f032a041ca788adb313d911e80bca819b96266c7921af06",
+     "if": "github.event.inputs.run_validation != 'false'"
+    },
+    {
+     "name": "Generate unified report (repaired: backslash-escaped keys inside the double-quoted python -c)",
+     "run_file": "tools/tasks/steps/demo-suite-runner-v2.demo-suite/09-generate-unified-report-repaired-backslash-escaped-keys-insi.sh",
+     "run_sha256": "4ddb959898bd824e5d731b4c33eea52bdd101540d39e8828c9b9eda01c673e95"
+    }
+   ],
+   "artifacts": [
+    {
+     "name": "demo-suite-v2-artifacts",
+     "path": "outputs/*.json\noutputs/*.md\noutputs/*.txt\n",
+     "if_no_files_found": "warn",
+     "if": "success()"
+    }
+   ],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30,
+    "python_version": "3.11",
+    "artifact_name": "demo-suite-v2-artifacts",
+    "artifact_if_no_files_found": "warn"
+   }
+  },
+  {
+   "id": "testing-data-loop-contract-validate.validate-contract",
+   "source": {
+    "workflow": ".github/workflows/testing-data-loop-contract-validate.yml",
+    "workflow_name": "Testing Data Loop Contract Validation",
+    "job": "validate-contract",
+    "job_name": null,
+    "commit": "d86a5a4",
+    "triggers_before": [
+     "push",
+     "pull_request",
+     "workflow_dispatch"
+    ],
+    "permissions_before": null
+   },
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {},
+   "steps": [
+    {
+     "name": "Check required terms",
+     "run_file": "tools/tasks/steps/testing-data-loop-contract-validate.validate-contract/01-check-required-terms.sh",
+     "run_sha256": "f3449a2b5c9476a2fe69813a7dd109db830d1231e62733a7faae74aa15bc354d"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "true",
+    "timeout_minutes": 30
+   }
+  },
+  {
+   "id": "workflow-surface-registry.validate",
+   "catalog_addition": "G17 registry gate (no folded source workflow)",
+   "events": [
+    "pull_request",
+    "push"
+   ],
+   "env": {},
+   "steps": [
+    {
+     "name": "Workflow files equal the registered surfaces; catalog verifies ALLOW",
+     "run_file": "tools/tasks/steps/workflow-surface-registry.validate/01-registry.sh",
+     "run_sha256": "811824e88664923006be2eeb35632d710f5504145967f61632ad9e8fbdcb35ca"
+    }
+   ],
+   "artifacts": [],
+   "runner": {
+    "fetch_depth": "1",
+    "persist_credentials": "false",
+    "timeout_minutes": 10,
+    "python_version": "3.11"
+   }
+  }
+ ]
+}
