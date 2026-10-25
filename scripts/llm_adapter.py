@@ -108,8 +108,15 @@ class LLMAdapter:
         self.budget_used = 0.0
         self.call_count = 0
 
-        # Initialize provider client
-        self._client = self._init_client()
+        # Provider client is initialized on first use (see `_client`), so constructing an
+        # adapter needs no provider SDK installed; a missing SDK still fails at first call.
+        self.__client = None
+
+    @property
+    def _client(self):
+        if self.__client is None:
+            self.__client = self._init_client()
+        return self.__client
 
     def _init_client(self):
         """Initialize provider-specific client."""

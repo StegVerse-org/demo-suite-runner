@@ -1,0 +1,1 @@
+echo "Cache cleared"
